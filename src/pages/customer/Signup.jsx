@@ -196,10 +196,13 @@ const Signup = () => {
     console.log('Signup result:', result);
     
     if (result.success) {
+      // Signup successful - show success message and navigate to login
+      console.log('✅ Signup successful, navigating to login');
       alert('Account created successfully! Please login.');
       navigate('/login');
     } else {
-      console.log('Setting error message:', result.error);
+      // Signup failed - show error message from backend API
+      console.log('❌ Signup failed with error:', result.error);
       setError(result.error);
     }
     

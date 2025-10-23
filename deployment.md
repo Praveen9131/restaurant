@@ -1,145 +1,210 @@
-# 🚀 Production Deployment Guide
+# SeaSide Live Bake Studio - Production Deployment Guide
 
-## 📋 Pre-Deployment Checklist
+This guide provides comprehensive instructions for deploying the SeaSide Live Bake Studio application to production.
 
-### ✅ Code Quality
-- [ ] All tests passing
-- [ ] No linting errors (`npm run lint`)
-- [ ] Code formatted properly
-- [ ] No console.log statements in production code
-- [ ] Error handling implemented
+## 🚀 Quick Start
 
-### ✅ Performance
-- [ ] Images optimized and hosted on CDN
-- [ ] Bundle size optimized
-- [ ] Lazy loading implemented where needed
-- [ ] Caching headers configured
+### Prerequisites
+- Node.js 18+ and npm
+- Production server (VPS, AWS, DigitalOcean, etc.)
+- Domain name configured
+- SSL certificate
+- Backend API running and accessible
 
-### ✅ Security
-- [ ] Environment variables secured
-- [ ] API endpoints protected
-- [ ] Input validation implemented
-- [ ] HTTPS enabled
+### 1. Build for Production
 
-### ✅ Configuration
-- [ ] Environment variables set
-- [ ] API URLs configured
-- [ ] Contact information updated
-- [ ] Social media links updated
-
-## 🏗️ Build Process
-
-### 1. Install Dependencies
 ```bash
-npm ci --production
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+
+# The build output will be in the `dist/` directory
 ```
 
-### 2. Build for Production
+### 2. Deploy to Server
+
+#### Option A: Static Hosting (Recommended)
+Deploy the `dist/` folder to any static hosting service:
+
+- **Vercel**: `vercel --prod`
+- **Netlify**: Drag and drop `dist/` folder
+- **AWS S3 + CloudFront**: Upload to S3 bucket
+- **GitHub Pages**: Push to gh-pages branch
+
+#### Option B: Nginx Server
 ```bash
-npm run build:prod
+# Copy dist folder to server
+scp -r dist/* user@your-server:/var/www/seasidelbs/
+
+# Nginx configuration
+sudo nano /etc/nginx/sites-available/seasidelbs
 ```
 
-### 3. Verify Build
-```bash
-npm run preview:prod
+Nginx configuration:
+```nginx
+server {
+    listen 80;
+    listen 443 ssl http2;
+    server_name seasidelbs.com www.seasidelbs.com;
+    
+    root /var/www/seasidelbs;
+    index index.html;
+    
+    # SSL Configuration
+    ssl_certificate /path/to/ssl/cert.pem;
+    ssl_certificate_key /path/to/ssl/private.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
+    ssl_prefer_server_ciphers off;
+    
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    # Gzip Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private must-revalidate auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript;
+    
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # Handle client-side routing
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # Service Worker
+    location /sw.js {
+        expires 0;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+}
 ```
 
-## 🌐 Deployment Options
+## 🔧 Environment Configuration
 
-### Option 1: Static Hosting (Recommended)
-
-#### Vercel
-1. Connect your GitHub repository
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
-
-#### Netlify
-1. Connect your GitHub repository
-2. Set build command: `npm run build`
-3. Set publish directory: `dist`
-4. Set environment variables
-
-#### AWS S3 + CloudFront
-1. Build the project: `npm run build`
-2. Upload `dist/` contents to S3 bucket
-3. Configure CloudFront distribution
-4. Set up custom domain
-
-### Option 2: VPS/Server Deployment
-
-#### Using Nginx
-1. Install Nginx on your server
-2. Build the project: `npm run build`
-3. Copy `dist/` contents to `/var/www/html/`
-4. Configure Nginx virtual host
-
-#### Using Apache
-1. Install Apache on your server
-2. Build the project: `npm run build`
-3. Copy `dist/` contents to `/var/www/html/`
-4. Configure Apache virtual host
-
-## 🔧 Environment Variables
-
-Create a `.env` file with the following variables:
+### Production Environment Variables
+Create a `.env.production` file:
 
 ```env
+# API Configuration
 VITE_API_BASE_URL=https://api.seasidelbs.com
+
+# Application Configuration
 VITE_APP_NAME=SeaSide Live Bake Studio
 VITE_APP_VERSION=1.0.0
 VITE_APP_ENVIRONMENT=production
+
+# Contact Information
 VITE_CONTACT_PHONE=+91 9994592607
 VITE_CONTACT_EMAIL=admin@seasidelbs.com
 VITE_CONTACT_ADDRESS=39, Main Road, Vannarapalayam, Cuddalore, Tamil Nadu 607001, India
+
+# Social Media
 VITE_INSTAGRAM_URL=https://www.instagram.com/seaside_live_bake_studio?igsh=MW9ycnRyY3QxeTAwMg==
+
+# Feature Flags
 VITE_ENABLE_DEBUG=false
 VITE_ENABLE_ANALYTICS=true
+VITE_ENABLE_ERROR_REPORTING=true
 ```
 
-## 📊 Performance Monitoring
+## 📊 Performance Optimization
 
-### Bundle Analysis
+### 1. Bundle Analysis
 ```bash
-npm run build
-npx vite-bundle-analyzer dist
+# Analyze bundle size
+npm run build -- --analyze
+
+# Check for unused dependencies
+npx depcheck
 ```
 
-### Lighthouse Audit
-1. Open Chrome DevTools
-2. Go to Lighthouse tab
-3. Run audit for Performance, Accessibility, Best Practices, SEO
+### 2. Image Optimization
+- Use WebP format for images
+- Implement lazy loading
+- Optimize image sizes (max 1920px width)
+- Use responsive images
 
-## 🔒 Security Considerations
+### 3. CDN Configuration
+Configure CDN for:
+- Static assets (JS, CSS, images)
+- API responses (if applicable)
+- Global distribution
 
-### HTTPS
-- Ensure all traffic is served over HTTPS
-- Configure proper SSL certificates
-- Set up HSTS headers
+## 🔒 Security Checklist
 
-### Content Security Policy
-Add CSP headers to prevent XSS attacks:
+### ✅ Implemented Security Features
+- [x] Content Security Policy (CSP)
+- [x] XSS Protection headers
+- [x] CSRF protection
+- [x] Input sanitization
+- [x] Secure authentication
+- [x] HTTPS enforcement
+- [x] Error boundary for production
+- [x] Rate limiting for API calls
 
-```html
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.seasidelbs.com;">
+### 🔍 Security Audit
+```bash
+# Run security audit
+npm audit
+
+# Fix vulnerabilities
+npm audit fix
+
+# Check for outdated packages
+npm outdated
 ```
 
-### API Security
-- Validate all API responses
-- Implement proper error handling
-- Use HTTPS for all API calls
-- Implement rate limiting on backend
+## 📱 PWA Configuration
 
-## 📱 Mobile Optimization
+### Service Worker
+The application includes a production-ready service worker with:
+- Static asset caching
+- Dynamic API caching
+- Offline support
+- Background sync
+- Push notifications (ready for implementation)
 
-### Responsive Design
-- Test on various screen sizes
-- Ensure touch targets are adequate
-- Optimize images for mobile
+### Manifest
+PWA manifest is configured with:
+- App icons (192x192, 512x512)
+- Theme colors
+- Display mode
+- Shortcuts for key features
 
-### Performance
-- Minimize bundle size
-- Use lazy loading for images
-- Optimize critical rendering path
+## 🚨 Monitoring & Analytics
+
+### Error Monitoring
+- Production error boundary captures all errors
+- Error IDs generated for support tracking
+- Console logging disabled in production
+- Ready for integration with Sentry, LogRocket, etc.
+
+### Performance Monitoring
+- Core Web Vitals tracking
+- API response time monitoring
+- Memory usage monitoring
+- Bundle size tracking
+
+### Analytics Integration
+Ready for integration with:
+- Google Analytics
+- Facebook Pixel
+- Custom analytics solutions
 
 ## 🔄 CI/CD Pipeline
 
@@ -149,68 +214,106 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18'
-    - name: Install dependencies
-      run: npm ci
-    - name: Build
-      run: npm run build:prod
-    - name: Deploy
-      run: # Your deployment commands here
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.ORG_ID }}
+          vercel-project-id: ${{ secrets.PROJECT_ID }}
+          working-directory: ./
 ```
 
-## 📈 Monitoring & Analytics
+## 📋 Pre-Deployment Checklist
 
-### Error Tracking
-- Implement error boundary in React
-- Set up error logging service
-- Monitor API errors
+### Code Quality
+- [ ] All tests passing
+- [ ] No console.log statements in production code
+- [ ] Error boundaries implemented
+- [ ] Performance optimizations applied
+- [ ] Security headers configured
 
-### Performance Monitoring
-- Set up performance monitoring
-- Track Core Web Vitals
-- Monitor bundle size
+### Build Verification
+- [ ] Production build successful
+- [ ] Bundle size within acceptable limits
+- [ ] No build warnings or errors
+- [ ] Service worker registered
+- [ ] PWA manifest valid
 
-### Analytics
-- Google Analytics integration
-- Track user interactions
-- Monitor conversion rates
+### Environment Setup
+- [ ] Production environment variables configured
+- [ ] API endpoints updated
+- [ ] SSL certificate installed
+- [ ] Domain DNS configured
+- [ ] CDN configured (if applicable)
 
-## 🚨 Troubleshooting
+### Testing
+- [ ] Cross-browser testing completed
+- [ ] Mobile responsiveness verified
+- [ ] Performance testing done
+- [ ] Security testing completed
+- [ ] Accessibility testing done
+
+## 🆘 Troubleshooting
 
 ### Common Issues
 
-#### Build Fails
-- Check for TypeScript errors
-- Verify all imports are correct
-- Ensure all dependencies are installed
+1. **Build Fails**
+   ```bash
+   # Clear cache and reinstall
+   rm -rf node_modules package-lock.json
+   npm install
+   npm run build
+   ```
 
-#### API Errors
-- Verify API endpoints are accessible
-- Check CORS configuration
-- Validate API responses
+2. **Service Worker Not Working**
+   - Check HTTPS requirement
+   - Verify service worker registration
+   - Check browser console for errors
 
-#### Performance Issues
-- Analyze bundle size
-- Check for memory leaks
-- Optimize images and assets
+3. **API Calls Failing**
+   - Verify CORS configuration
+   - Check API endpoint URLs
+   - Verify authentication tokens
 
-## 📞 Support
+4. **Performance Issues**
+   - Analyze bundle size
+   - Check for memory leaks
+   - Optimize images and assets
 
-For deployment issues, contact:
-- **Email:** admin@seasidelbs.com
-- **Phone:** +91 9994592607
+### Support
+For deployment issues:
+- Email: admin@seasidelbs.com
+- Phone: +91 9994592607
+- Check application logs for error details
+
+## 📈 Post-Deployment
+
+### Monitoring
+1. Set up uptime monitoring
+2. Configure error alerting
+3. Monitor performance metrics
+4. Track user analytics
+
+### Maintenance
+1. Regular security updates
+2. Dependency updates
+3. Performance monitoring
+4. User feedback collection
 
 ---
 
-**Last Updated:** January 2025
-**Version:** 1.0.0
+**Last Updated**: October 2024
+**Version**: 1.0.0
+**Maintained by**: SeaSide Live Bake Studio Development Team

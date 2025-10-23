@@ -35,10 +35,11 @@ const Login = () => {
       
       if (result.success) {
         // Login successful - navigate to menu
+        console.log('✅ Login successful, navigating to menu');
         navigate('/menu');
       } else {
         // Login failed - show error message from backend API
-        console.log('Login failed with error:', result.error);
+        console.log('❌ Login failed with error:', result.error);
         setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (error) {
@@ -52,22 +53,56 @@ const Login = () => {
       
       let errorMessage = 'Login failed. Please check your credentials.';
       
-      // Try to extract error from response
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // If 404 error, provide helpful message
-      if (error.status === 404) {
-        errorMessage = 'API endpoint not found (404). Please check if the server is running correctly.';
-      } else if (error.isNetworkError) {
-        errorMessage = 'Cannot connect to server. Please check your internet connection.';
+      // Handle specific status codes
+      if (error.response?.status === 400) {
+        // Status code 400 - Print the response
+        console.log('🔴 Status Code 400 - Printing Response:');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        console.log('Response Headers:', error.response.headers);
+        
+        // Extract error message from response
+        if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else {
+          errorMessage = `Bad Request (400): ${JSON.stringify(error.response.data)}`;
+        }
+      } else if (error.response?.status === 201) {
+        // Status code 201 - Proceed to next page
+        console.log('✅ Status Code 201 - Login successful, proceeding to next page');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        navigate('/menu');
+        return; // Exit early to prevent setting error
+      } else if (error.response?.status === 200) {
+        // Status code 200 - Login successful
+        console.log('✅ Status Code 200 - Login successful, proceeding to next page');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        navigate('/menu');
+        return; // Exit early to prevent setting error
+      } else {
+        // Try to extract error from response for other status codes
+        if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        // If 404 error, provide helpful message
+        if (error.status === 404) {
+          errorMessage = 'API endpoint not found (404). Please check if the server is running correctly.';
+        } else if (error.isNetworkError) {
+          errorMessage = 'Cannot connect to server. Please check your internet connection.';
+        }
       }
       
       setError(errorMessage);

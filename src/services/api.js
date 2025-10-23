@@ -5,16 +5,33 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.seasidelb
 
 // Check if we're in development mode
 const _isDevelopment = import.meta.env.DEV;
+const _isProduction = import.meta.env.PROD;
+
+// Security headers for production
+const getSecurityHeaders = () => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  
+  if (_isProduction) {
+    headers['X-Requested-With'] = 'XMLHttpRequest';
+    headers['X-Content-Type-Options'] = 'nosniff';
+    headers['X-Frame-Options'] = 'DENY';
+  }
+  
+  return headers;
+};
 
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000, // 15 second timeout
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
+  timeout: _isProduction ? 10000 : 15000, // Shorter timeout in production
+  headers: getSecurityHeaders(),
   withCredentials: false, // Disable to prevent CORS issues
+  // Security configurations
+  maxRedirects: 3,
+  validateStatus: (status) => status >= 200 && status < 300,
 });
 
 // Request interceptor for adding auth token and logging
@@ -26,16 +43,23 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Log request details
-    console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
-      data: config.data,
-      params: config.params,
-    });
+    // Add request ID for tracking
+    config.metadata = { startTime: Date.now() };
+    
+    // Log request details (only in development)
+    if (_isDevelopment) {
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
+        data: config.data,
+        params: config.params,
+      });
+    }
     
     return config;
   },
   (error) => {
-    console.error('[API] Request Error:', error);
+    if (_isDevelopment) {
+      console.error('[API] Request Error:', error);
+    }
     return Promise.reject(error);
   }
 );
@@ -43,23 +67,33 @@ api.interceptors.request.use(
 // Response interceptor for handling errors and logging
 api.interceptors.response.use(
   (response) => {
-    console.log(`[API] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-      data: response.data,
-    });
+    // Calculate request duration
+    const duration = response.config.metadata ? Date.now() - response.config.metadata.startTime : 0;
+    
+    // Log response details (only in development)
+    if (_isDevelopment) {
+      console.log(`[API] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url} (${duration}ms)`, {
+        data: response.data,
+      });
+    }
+    
     return response;
   },
   (error) => {
     // Handle network errors (no response from server)
     if (!error.response) {
-      console.error('[API] Network Error:', {
-        message: error.message,
-        code: error.code,
-        url: error.config?.url,
-      });
+      if (_isDevelopment) {
+        console.error('[API] Network Error:', {
+          message: error.message,
+          code: error.code,
+          url: error.config?.url,
+        });
+      }
       
       const networkError = new Error('Unable to connect to server. Please check your internet connection or try again later.');
       networkError.isNetworkError = true;
       networkError.originalError = error.message;
+      networkError.code = error.code;
       return Promise.reject(networkError);
     }
 

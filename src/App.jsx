@@ -8,6 +8,7 @@ import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import Loading from './components/common/Loading';
 import ProfileIcon from './components/common/ProfileIcon';
+import ProductionErrorBoundary from './components/common/ProductionErrorBoundary';
 // import AuthDebug from './components/common/AuthDebug'; // Development only
 
 // Customer Pages
@@ -87,12 +88,13 @@ const Layout = ({ children, hideFooter = false }) => {
 
 function App() {
   return (
-    <Router>
-      <NotificationProvider>
-        <AuthProvider>
-          <CartProvider>
-            {/* <AuthDebug /> */} {/* Development only */}
-            <Routes>
+    <ProductionErrorBoundary>
+      <Router>
+        <NotificationProvider>
+          <AuthProvider>
+            <CartProvider>
+              {/* <AuthDebug /> */} {/* Development only */}
+              <Routes>
             {/* Customer Routes - Redirect admins to admin panel */}
             <Route path="/" element={<CustomerRoute><Layout><Home /></Layout></CustomerRoute>} />
             <Route path="/menu" element={<CustomerRoute><Layout hideFooter={true}><Menu /></Layout></CustomerRoute>} />
@@ -178,11 +180,12 @@ function App() {
 
             {/* Catch all - redirect to home */}
             <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </CartProvider>
-        </AuthProvider>
-      </NotificationProvider>
-    </Router>
+              </Routes>
+            </CartProvider>
+          </AuthProvider>
+        </NotificationProvider>
+      </Router>
+    </ProductionErrorBoundary>
   );
 }
 

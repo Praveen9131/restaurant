@@ -85,6 +85,82 @@ export const AuthProvider = ({ children }) => {
       console.error('Login error response:', error.response?.data);
       console.error('Login error status:', error.response?.status);
       
+      // Handle specific status codes
+      if (error.response?.status === 400) {
+        // Status code 400 - Print the response
+        console.log('🔴 Status Code 400 - Printing Response:');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        console.log('Response Headers:', error.response.headers);
+        
+        let errorMessage = 'Login failed. Please check your credentials.';
+        
+        // Extract error message from response
+        if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else {
+          errorMessage = `Bad Request (400): ${JSON.stringify(error.response.data)}`;
+        }
+        
+        console.log('📤 Final 400 error message:', errorMessage);
+        return { success: false, error: errorMessage };
+      } else if (error.response?.status === 201) {
+        // Status code 201 - Login successful
+        console.log('✅ Status Code 201 - Login successful');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Transform API response (snake_case) to frontend format (camelCase)
+        const userData = {
+          id: error.response.data.user_id,
+          username: error.response.data.username,
+          email: error.response.data.email,
+          firstName: error.response.data.first_name,
+          lastName: error.response.data.last_name,
+          customerId: error.response.data.customer_id,
+          customerName: error.response.data.customer_name,
+          phone: error.response.data.phone,
+          address: error.response.data.address
+        };
+        
+        console.log('User logged in successfully (201):', userData);
+        setUser(userData);
+        setIsAdmin(false);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('isAdmin', 'false');
+        return { success: true, data: userData };
+      } else if (error.response?.status === 200) {
+        // Status code 200 - Login successful
+        console.log('✅ Status Code 200 - Login successful');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Transform API response (snake_case) to frontend format (camelCase)
+        const userData = {
+          id: error.response.data.user_id,
+          username: error.response.data.username,
+          email: error.response.data.email,
+          firstName: error.response.data.first_name,
+          lastName: error.response.data.last_name,
+          customerId: error.response.data.customer_id,
+          customerName: error.response.data.customer_name,
+          phone: error.response.data.phone,
+          address: error.response.data.address
+        };
+        
+        console.log('User logged in successfully (200):', userData);
+        setUser(userData);
+        setIsAdmin(false);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('isAdmin', 'false');
+        return { success: true, data: userData };
+      }
+      
+      // Handle other status codes
       let errorMessage = 'Login failed. Please check your credentials.';
       
       // Check for specific error messages from API response
@@ -115,9 +191,6 @@ export const AuthProvider = ({ children }) => {
           errorMessage = error.response.data.non_field_errors;
         }
         console.log('✅ Using API non_field_errors:', errorMessage);
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Invalid credentials. Please check your username and password.';
-        console.log('⚠️ Using generic 400 message:', errorMessage);
       } else if (error.response?.status === 401) {
         errorMessage = 'Invalid username or password. Please try again.';
         console.log('⚠️ Using generic 401 message:', errorMessage);
@@ -210,6 +283,82 @@ export const AuthProvider = ({ children }) => {
       console.error('Error message:', error.message);
       console.error('Error code:', error.code);
       
+      // Handle specific status codes
+      if (error.response?.status === 400) {
+        // Status code 400 - Print the response
+        console.log('🔴 Status Code 400 - Printing Response:');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        console.log('Response Headers:', error.response.headers);
+        
+        let errorMessage = 'Signup failed. Please try again.';
+        
+        // Extract error message from response
+        if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.response.data?.errors) {
+          // Handle validation errors array
+          if (Array.isArray(error.response.data.errors)) {
+            errorMessage = error.response.data.errors.join(', ');
+          } else if (typeof error.response.data.errors === 'object') {
+            errorMessage = Object.values(error.response.data.errors).join(', ');
+          } else {
+            errorMessage = error.response.data.errors;
+          }
+        } else if (error.response.data?.non_field_errors) {
+          // Handle Django non-field errors
+          if (Array.isArray(error.response.data.non_field_errors)) {
+            errorMessage = error.response.data.non_field_errors.join(', ');
+          } else {
+            errorMessage = error.response.data.non_field_errors;
+          }
+        } else {
+          errorMessage = `Bad Request (400): ${JSON.stringify(error.response.data)}`;
+        }
+        
+        console.log('📤 Final 400 error message:', errorMessage);
+        return { success: false, error: errorMessage };
+      } else if (error.response?.status === 201) {
+        // Status code 201 - Signup successful
+        console.log('✅ Status Code 201 - Signup successful');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Transform API response if user data is returned
+        if (error.response.data && error.response.data.user_id) {
+          const transformedData = {
+            ...error.response.data,
+            customerId: error.response.data.customer_id,
+            userId: error.response.data.user_id
+          };
+          return { success: true, data: transformedData };
+        }
+        
+        return { success: true, data: error.response.data };
+      } else if (error.response?.status === 200) {
+        // Status code 200 - Signup successful
+        console.log('✅ Status Code 200 - Signup successful');
+        console.log('Response Status:', error.response.status);
+        console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Transform API response if user data is returned
+        if (error.response.data && error.response.data.user_id) {
+          const transformedData = {
+            ...error.response.data,
+            customerId: error.response.data.customer_id,
+            userId: error.response.data.user_id
+          };
+          return { success: true, data: transformedData };
+        }
+        
+        return { success: true, data: error.response.data };
+      }
+      
+      // Handle other status codes
       let errorMessage = 'Signup failed. Please try again.';
       
       // Check for specific error messages from API response
@@ -240,9 +389,6 @@ export const AuthProvider = ({ children }) => {
           errorMessage = error.response.data.non_field_errors;
         }
         console.log('✅ Using API non_field_errors:', errorMessage);
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Invalid data provided. Please check all fields.';
-        console.log('⚠️ Using generic 400 message:', errorMessage);
       } else if (error.response?.status === 401) {
         errorMessage = 'Authentication required. Please try again.';
         console.log('⚠️ Using generic 401 message:', errorMessage);

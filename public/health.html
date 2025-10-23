@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeaSide Live Bake Studio - Health Check</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .status {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .healthy { color: #10b981; }
+        .unhealthy { color: #ef4444; }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .info {
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+        .details {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .detail-label {
+            font-weight: 500;
+            color: #374151;
+        }
+        .detail-value {
+            color: #6b7280;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status healthy">✅</div>
+        <h1>SeaSide Live Bake Studio</h1>
+        <p class="info">Application is running successfully</p>
+        
+        <div class="details">
+            <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value">Healthy</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Version:</span>
+                <span class="detail-value">1.0.0</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Environment:</span>
+                <span class="detail-value">Production</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Build Time:</span>
+                <span class="detail-value" id="buildTime">Loading...</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Uptime:</span>
+                <span class="detail-value" id="uptime">Loading...</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">API Status:</span>
+                <span class="detail-value" id="apiStatus">Checking...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set build time
+        document.getElementById('buildTime').textContent = new Date().toISOString();
+        
+        // Calculate uptime
+        const startTime = Date.now();
+        setInterval(() => {
+            const uptime = Date.now() - startTime;
+            const seconds = Math.floor(uptime / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            let uptimeStr = '';
+            if (hours > 0) uptimeStr += `${hours}h `;
+            if (minutes > 0) uptimeStr += `${minutes % 60}m `;
+            uptimeStr += `${seconds % 60}s`;
+            
+            document.getElementById('uptime').textContent = uptimeStr;
+        }, 1000);
+        
+        // Check API status
+        fetch('/api/health')
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById('apiStatus').textContent = 'Connected';
+                    document.getElementById('apiStatus').style.color = '#10b981';
+                } else {
+                    throw new Error('API not responding');
+                }
+            })
+            .catch(error => {
+                document.getElementById('apiStatus').textContent = 'Disconnected';
+                document.getElementById('apiStatus').style.color = '#ef4444';
+            });
+    </script>
+</body>
+</html>

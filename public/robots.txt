@@ -1,0 +1,23 @@
+# SeaSide Live Bake Studio - Robots.txt
+# Production configuration for search engine crawlers
+
+User-agent: *
+Allow: /
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /health.html
+Disallow: /sw.js
+
+# Allow important pages
+Allow: /menu
+Allow: /about
+Allow: /gallery
+Allow: /contact
+
+# Sitemap location
+Sitemap: https://seasidelbs.com/sitemap.xml
+
+# Crawl delay (optional)
+Crawl-delay: 1
