@@ -1,11 +1,19 @@
 import axios from 'axios';
 
 // Configure your backend API URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.seasidelbs.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Check if we're in development mode
 const _isDevelopment = import.meta.env.DEV;
 const _isProduction = import.meta.env.PROD;
+
+// Debug API configuration
+console.log('🔧 API Configuration:', {
+  API_BASE_URL,
+  isDevelopment: _isDevelopment,
+  isProduction: _isProduction,
+  env: import.meta.env.MODE
+});
 
 // Security headers for production
 const getSecurityHeaders = () => {
@@ -82,18 +90,35 @@ api.interceptors.response.use(
   (error) => {
     // Handle network errors (no response from server)
     if (!error.response) {
-      if (_isDevelopment) {
-        console.error('[API] Network Error:', {
-          message: error.message,
-          code: error.code,
-          url: error.config?.url,
-        });
+      const errorDetails = {
+        message: error.message,
+        code: error.code,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        method: error.config?.method,
+        timeout: error.config?.timeout
+      };
+      
+      console.error('[API] Network Error:', errorDetails);
+      
+      // Provide more specific error messages based on the error type
+      let userMessage = 'Unable to connect to server. Please check your internet connection or try again later.';
+      
+      if (error.code === 'ECONNABORTED') {
+        userMessage = 'Request timed out. The server is taking too long to respond.';
+      } else if (error.code === 'ERR_NETWORK') {
+        userMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message.includes('CORS')) {
+        userMessage = 'CORS error. Please contact support if this persists.';
+      } else if (error.message.includes('Failed to fetch')) {
+        userMessage = 'Failed to connect to server. Please check if the server is running.';
       }
       
-      const networkError = new Error('Unable to connect to server. Please check your internet connection or try again later.');
+      const networkError = new Error(userMessage);
       networkError.isNetworkError = true;
       networkError.originalError = error.message;
       networkError.code = error.code;
+      networkError.details = errorDetails;
       return Promise.reject(networkError);
     }
 
