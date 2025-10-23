@@ -20,145 +20,136 @@ const Menu = () => {
 
   // Fetch categories only once on mount
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
-  // Fetch menu items and update counts when filters change
-  useEffect(() => {
-    if (categories.length > 0) {
-      fetchMenuItems();
-      fetchCategoryCounts(categories);
-    }
-  }, [selectedCategory, vegetarianOnly, nonVegOnly, showAllItems, categories, fetchCategoryCounts, fetchMenuItems]);
-
-  const fetchCategories = useCallback(async () => {
-    try {
-      setCategoriesLoading(true);
-      setError('');
-      const response = await categoryAPI.getAll();
-      const categoriesData = response.data.categories || [];
-      
-      // Add "All" category at the beginning
-      const allCategory = {
-        id: 'all',
-        name: 'All',
-        description: 'All menu items'
-      };
-      
-      const categoriesList = [allCategory, ...categoriesData];
-      setCategories(categoriesList);
-      
-      // Fetch menu items and counts on initial load
-      await Promise.all([
-        fetchMenuItems(),
-        fetchCategoryCounts(categoriesList)
-      ]);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setError('Failed to load categories. Please refresh the page.');
-    } finally {
-      setCategoriesLoading(false);
-    }
-  }, [fetchMenuItems, fetchCategoryCounts]);
-
-  const fetchCategoryCounts = useCallback(async (categoriesList) => {
-    const counts = { 'all': 0 };
+    const loadCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+        setError('');
+        const response = await categoryAPI.getAll();
+        const categoriesData = response.data.categories || [];
+        
+        // Add "All" category at the beginning
+        const allCategory = {
+          id: 'all',
+          name: 'All',
+          description: 'All menu items'
+        };
+        
+        const categoriesList = [allCategory, ...categoriesData];
+        setCategories(categoriesList);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setError('Failed to load categories. Please refresh the page.');
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
     
-    try {
-      // Get total count for "All" category with current filters
-      const allParams = {}; // Backend has issue with available_only parameter, so fetch all items
-      if (vegetarianOnly) {
-        allParams.vegetarian_only = true;
+    loadCategories();
+  }, []);
+
+  // Fetch menu items when filters change
+  useEffect(() => {
+    const loadMenuItems = async () => {
+      if (categories.length === 0) return;
+      
+      setLoading(true);
+      try {
+        setError('');
+        const params = {};
+        
+        if (selectedCategory && selectedCategory !== 'all') {
+          params.category_id = selectedCategory;
+        }
+        
+        if (vegetarianOnly) {
+          params.vegetarian_only = true;
+        }
+
+        const response = await menuAPI.getAll(params);
+        const allItems = response.data.menu_items || [];
+        
+        // Apply client-side filtering
+        let filteredItems = allItems;
+        if (vegetarianOnly) {
+          filteredItems = allItems.filter(item => item.is_vegetarian);
+        } else if (nonVegOnly) {
+          filteredItems = allItems.filter(item => !item.is_vegetarian);
+        }
+        
+        setAllMenuItems(filteredItems);
+        setMenuItems(filteredItems);
+      } catch (error) {
+        console.error('Error fetching menu items:', error);
+        setError('Failed to load menu items. Please refresh the page.');
+        setMenuItems([]);
+        setAllMenuItems([]);
+      } finally {
+        setLoading(false);
       }
-      const allResponse = await menuAPI.getAll(allParams);
-      let allItems = allResponse.data.menu_items || [];
+    };
+    
+    loadMenuItems();
+  }, [selectedCategory, vegetarianOnly, nonVegOnly, showAllItems, categories]);
+
+  // Fetch category counts when categories or filters change
+  useEffect(() => {
+    const loadCategoryCounts = async () => {
+      if (categories.length === 0) return;
       
-      // Apply client-side filtering based on selected filter
-      if (vegetarianOnly) {
-        allItems = allItems.filter(item => item.is_vegetarian);
-      } else if (nonVegOnly) {
-        allItems = allItems.filter(item => !item.is_vegetarian);
-      }
-      // If showAllItems is true (default), show all items without filtering
+      const counts = { 'all': 0 };
       
-      // Count all items (both available and unavailable)
-      counts['all'] = allItems.length;
-      
-      // Get count for each specific category with current filters
-      for (const category of categoriesList) {
-        if (category.id !== 'all') {
-          try {
-            const params = { 
-              category_id: category.id
-              // Backend has issue with available_only parameter, so fetch all items
-            };
-            if (vegetarianOnly) {
-              params.vegetarian_only = true;
+      try {
+        // Get total count for "All" category with current filters
+        const allParams = {};
+        if (vegetarianOnly) {
+          allParams.vegetarian_only = true;
+        }
+        const allResponse = await menuAPI.getAll(allParams);
+        let allItems = allResponse.data.menu_items || [];
+        
+        // Apply client-side filtering
+        if (vegetarianOnly) {
+          allItems = allItems.filter(item => item.is_vegetarian);
+        } else if (nonVegOnly) {
+          allItems = allItems.filter(item => !item.is_vegetarian);
+        }
+        
+        counts['all'] = allItems.length;
+        
+        // Get count for each specific category
+        for (const category of categories) {
+          if (category.id !== 'all') {
+            try {
+              const params = { category_id: category.id };
+              if (vegetarianOnly) {
+                params.vegetarian_only = true;
+              }
+              const response = await menuAPI.getAll(params);
+              let categoryItems = response.data.menu_items || [];
+              
+              // Apply client-side filtering
+              if (vegetarianOnly) {
+                categoryItems = categoryItems.filter(item => item.is_vegetarian);
+              } else if (nonVegOnly) {
+                categoryItems = categoryItems.filter(item => !item.is_vegetarian);
+              }
+              
+              counts[category.id] = categoryItems.length;
+            } catch (error) {
+              console.error(`Error fetching count for category ${category.id}:`, error);
+              counts[category.id] = 0;
             }
-            const response = await menuAPI.getAll(params);
-            let categoryItems = response.data.menu_items || [];
-            
-            // Apply client-side filtering based on selected filter
-            if (vegetarianOnly) {
-              categoryItems = categoryItems.filter(item => item.is_vegetarian);
-            } else if (nonVegOnly) {
-              categoryItems = categoryItems.filter(item => !item.is_vegetarian);
-            }
-            // If showAllItems is true (default), show all items without filtering
-            
-            // Count all items (both available and unavailable)
-            counts[category.id] = categoryItems.length;
-          } catch (error) {
-            console.error(`Error fetching count for category ${category.id}:`, error);
-            counts[category.id] = 0;
           }
         }
+        
+        setCategoryCounts(counts);
+      } catch (error) {
+        console.error('Error fetching category counts:', error);
       }
-      
-      setCategoryCounts(counts);
-    } catch (error) {
-      console.error('Error fetching category counts:', error);
-    }
-  }, [vegetarianOnly, nonVegOnly]);
-
-  const fetchMenuItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      setError('');
-      const params = {}; // Backend has issue with available_only parameter, so fetch all items
-      
-      if (selectedCategory && selectedCategory !== 'all') {
-        params.category_id = selectedCategory;
-      }
-      
-      if (vegetarianOnly) {
-        params.vegetarian_only = true;
-      }
-
-      const response = await menuAPI.getAll(params);
-      const allItems = response.data.menu_items || [];
-      
-      // Apply client-side filtering based on selected filter
-      let filteredItems = allItems;
-      if (vegetarianOnly) {
-        filteredItems = allItems.filter(item => item.is_vegetarian);
-      } else if (nonVegOnly) {
-        filteredItems = allItems.filter(item => !item.is_vegetarian);
-      }
-      // If showAllItems is true (default), show all items without filtering
-      
-      // Show both available and unavailable items
-      setAllMenuItems(filteredItems);
-      setMenuItems(filteredItems);
-    } catch (error) {
-      console.error('Error fetching menu items:', error);
-      setError('Failed to load menu items. Please refresh the page.');
-      setMenuItems([]);
-      setAllMenuItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCategory, vegetarianOnly, nonVegOnly]);
+    };
+    
+    loadCategoryCounts();
+  }, [categories, vegetarianOnly, nonVegOnly]);
 
   // Filter menu items based on search query
   const filterBySearch = (items, query) => {
