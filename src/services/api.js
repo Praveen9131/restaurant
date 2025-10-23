@@ -1,19 +1,21 @@
 import axios from 'axios';
 
 // Configure your backend API URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.seasidelbs.com';
 
 // Check if we're in development mode
 const _isDevelopment = import.meta.env.DEV;
 const _isProduction = import.meta.env.PROD;
 
-// Debug API configuration
-console.log('🔧 API Configuration:', {
-  API_BASE_URL,
-  isDevelopment: _isDevelopment,
-  isProduction: _isProduction,
-  env: import.meta.env.MODE
-});
+// Debug API configuration (only in development)
+if (_isDevelopment) {
+  console.log('🔧 API Configuration:', {
+    API_BASE_URL,
+    isDevelopment: _isDevelopment,
+    isProduction: _isProduction,
+    env: import.meta.env.MODE
+  });
+}
 
 // Security headers for production
 const getSecurityHeaders = () => {
