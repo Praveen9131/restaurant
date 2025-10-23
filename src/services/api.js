@@ -201,35 +201,17 @@ export const categoryAPI = {
     console.log('Creating category with data:', data);
     return api.post('/create-categories/', data);
   },
-  update: async (categoryId, data) => {
+  update: (categoryId, data) => {
     console.log('Updating category:', categoryId, 'with data:', data);
     
-    try {
-      // Since there's no direct update endpoint, we'll use create + delete approach
-      // This maintains the category ID by creating first, then deleting the old one
-      
-      // First create the new category with updated data
-      const createResponse = await api.post('/create-categories/', data);
-      console.log('Created new category:', createResponse.data);
-      
-      // Then delete the old category
-      await api.post('/delete-categories/', { category_id: categoryId });
-      console.log('Deleted old category:', categoryId);
-      
-      // Return success response
-      return {
-        ...createResponse,
-        data: {
-          ...createResponse.data,
-          message: 'Category updated successfully',
-          old_category_id: categoryId,
-          new_category_id: createResponse.data.category?.id
-        }
-      };
-    } catch (error) {
-      console.error('Category update failed:', error);
-      throw error;
-    }
+    const updateData = {
+      category_id: categoryId,
+      name: data.name,
+      description: data.description
+    };
+    
+    console.log('Category update payload:', updateData);
+    return api.post('/restaurant-category-update/', updateData);
   },
   delete: (categoryId) => {
     console.log('Deleting category:', categoryId);

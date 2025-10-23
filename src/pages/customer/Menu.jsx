@@ -68,8 +68,8 @@ const Menu = () => {
         const response = await menuAPI.getAll(params);
         const allItems = response.data.menu_items || [];
         
-        // Apply client-side filtering
-        let filteredItems = allItems.filter(item => item.is_available); // Only show available items
+        // Apply client-side filtering - Show all items including unavailable ones
+        let filteredItems = allItems; // Show all items, both available and unavailable
         
         // Filter out known problematic menu items that cause "menu items not found" error
         const problematicMenuItems = [2, 47]; // Items that are marked available but cause order creation to fail
@@ -112,8 +112,8 @@ const Menu = () => {
                const allResponse = await menuAPI.getAll(allParams);
                let allItems = allResponse.data.menu_items || [];
                
-               // Apply client-side filtering
-               allItems = allItems.filter(item => item.is_available); // Only count available items
+               // Apply client-side filtering - Count all items including unavailable ones
+               // allItems = allItems.filter(item => item.is_available); // Show all items, both available and unavailable
                
                // Filter out known problematic menu items
                const problematicMenuItems = [2, 47];
@@ -138,8 +138,8 @@ const Menu = () => {
                      const response = await menuAPI.getAll(params);
                      let categoryItems = response.data.menu_items || [];
                      
-                     // Apply client-side filtering
-                     categoryItems = categoryItems.filter(item => item.is_available); // Only count available items
+                     // Apply client-side filtering - Count all items including unavailable ones
+                     // categoryItems = categoryItems.filter(item => item.is_available); // Show all items, both available and unavailable
                      
                      // Filter out known problematic menu items
                      const problematicMenuItems = [2, 47];

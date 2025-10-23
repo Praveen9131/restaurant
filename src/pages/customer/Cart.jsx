@@ -3,7 +3,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 
 const Cart = () => {
-  const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart();
+  const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart, getBillingBreakdown } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -136,20 +136,37 @@ const Cart = () => {
             <div className="card p-6 sticky top-24">
               <h2 className="text-2xl font-bold mb-6">Order Summary</h2>
 
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₹{Math.round(getCartTotal())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Delivery Fee</span>
-                  <span className="font-medium">₹50</span>
-                </div>
-                <div className="border-t pt-3 flex justify-between text-xl font-bold">
-                  <span>Total</span>
-                  <span className="text-primary">₹{Math.round(getCartTotal() + 50)}</span>
-                </div>
-              </div>
+              {(() => {
+                const billing = getBillingBreakdown();
+                return (
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Subtotal ({billing.itemCount} item{billing.itemCount !== 1 ? 's' : ''})</span>
+                      <span className="font-medium">₹{Math.round(billing.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Delivery Fee</span>
+                      <span className="font-medium">₹{billing.deliveryFee}</span>
+                    </div>
+                    {billing.serviceFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Service Fee</span>
+                        <span className="font-medium">₹{billing.serviceFee}</span>
+                      </div>
+                    )}
+                    {billing.tax > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Tax (GST)</span>
+                        <span className="font-medium">₹{billing.tax}</span>
+                      </div>
+                    )}
+                    <div className="border-t pt-3 flex justify-between text-xl font-bold">
+                      <span>Total Amount</span>
+                      <span className="text-primary">₹{Math.round(billing.total)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <button onClick={handleCheckout} className="w-full btn-primary mb-3">
                 Proceed to Checkout

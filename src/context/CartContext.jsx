@@ -102,6 +102,41 @@ export const CartProvider = ({ children }) => {
     return cart.reduce((count, item) => count + item.quantity, 0);
   };
 
+  const getDeliveryFee = () => {
+    // Delivery fee is ₹50 for all orders
+    return 50;
+  };
+
+  const getServiceFee = () => {
+    // Service fee is ₹0 for now
+    return 0;
+  };
+
+  const getTax = () => {
+    // Tax (GST) is ₹0 for now
+    return 0;
+  };
+
+  const getTotalWithFees = () => {
+    const subtotal = getCartTotal();
+    const deliveryFee = getDeliveryFee();
+    const serviceFee = getServiceFee();
+    const tax = getTax();
+    return subtotal + deliveryFee + serviceFee + tax;
+  };
+
+  const getBillingBreakdown = () => {
+    return {
+      subtotal: getCartTotal(),
+      deliveryFee: getDeliveryFee(),
+      serviceFee: getServiceFee(),
+      tax: getTax(),
+      total: getTotalWithFees(),
+      itemCount: cart.length,
+      totalQuantity: getCartCount()
+    };
+  };
+
   const value = {
     cart,
     addToCart,
@@ -110,6 +145,11 @@ export const CartProvider = ({ children }) => {
     clearCart,
     getCartTotal,
     getCartCount,
+    getDeliveryFee,
+    getServiceFee,
+    getTax,
+    getTotalWithFees,
+    getBillingBreakdown,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

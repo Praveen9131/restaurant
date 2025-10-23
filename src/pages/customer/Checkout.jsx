@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { orderAPI } from '../../services/api';
 
 const Checkout = () => {
-  const { cart, getCartTotal, clearCart } = useCart();
+  const { cart, getCartTotal, clearCart, getBillingBreakdown } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -193,20 +193,71 @@ const Checkout = () => {
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₹{Math.round(getCartTotal())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Delivery Fee</span>
-                  <span className="font-medium">₹50</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between text-xl font-bold">
-                  <span>Total</span>
-                  <span className="text-primary">₹{Math.round(getCartTotal() + 50)}</span>
-                </div>
-              </div>
+              {(() => {
+                const billing = getBillingBreakdown();
+                return (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Complete Bill</h3>
+                    
+                    {/* Item Details */}
+                    <div className="space-y-2">
+                      {cart.map((item, index) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span className="text-gray-600">
+                            {item.name} {item.selectedVariation && `(${item.selectedVariation})`} × {item.quantity}
+                          </span>
+                          <span className="font-medium">₹{Math.round(item.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Subtotal */}
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-gray-600">Subtotal ({billing.itemCount} item{billing.itemCount !== 1 ? 's' : ''})</span>
+                      <span className="font-medium">₹{Math.round(billing.subtotal)}</span>
+                    </div>
+                    
+                    {/* Delivery Fee */}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Delivery Fee</span>
+                      <span className="font-medium">₹{billing.deliveryFee}</span>
+                    </div>
+                    
+                    {/* Service Fee (if applicable) */}
+                    {billing.serviceFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Service Fee</span>
+                        <span className="font-medium">₹{billing.serviceFee}</span>
+                      </div>
+                    )}
+                    
+                    {/* Tax (if applicable) */}
+                    {billing.tax > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Tax (GST)</span>
+                        <span className="font-medium">₹{billing.tax}</span>
+                      </div>
+                    )}
+                    
+                    {/* Total */}
+                    <div className="border-t pt-3 flex justify-between text-xl font-bold text-primary">
+                      <span>Total Amount</span>
+                      <span>₹{Math.round(billing.total)}</span>
+                    </div>
+                    
+                    {/* Payment Method */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                        </svg>
+                        <span className="text-green-800 font-medium">Cash on Delivery</span>
+                      </div>
+                      <p className="text-sm text-green-700 mt-1">Pay ₹{Math.round(billing.total)} when your order arrives</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

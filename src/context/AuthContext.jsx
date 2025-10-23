@@ -148,25 +148,84 @@ export const AuthProvider = ({ children }) => {
       console.error('Signup error details:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
       
-      let errorMessage = 'Signup failed';
+      let errorMessage = 'Signup failed. Please try again.';
       
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
+      // Check for specific error messages from API response
+      if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
+        console.log('✅ Using API error message:', errorMessage);
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        console.log('✅ Using API message field:', errorMessage);
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+        console.log('✅ Using API detail field:', errorMessage);
+      } else if (error.response?.data?.errors) {
+        // Handle validation errors array
+        if (Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.join(', ');
+        } else if (typeof error.response.data.errors === 'object') {
+          errorMessage = Object.values(error.response.data.errors).join(', ');
+        } else {
+          errorMessage = error.response.data.errors;
+        }
+        console.log('✅ Using API errors field:', errorMessage);
+      } else if (error.response?.data?.non_field_errors) {
+        // Handle Django non-field errors
+        if (Array.isArray(error.response.data.non_field_errors)) {
+          errorMessage = error.response.data.non_field_errors.join(', ');
+        } else {
+          errorMessage = error.response.data.non_field_errors;
+        }
+        console.log('✅ Using API non_field_errors:', errorMessage);
       } else if (error.response?.status === 400) {
         errorMessage = 'Invalid data provided. Please check all fields.';
+        console.log('⚠️ Using generic 400 message:', errorMessage);
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication required. Please try again.';
+        console.log('⚠️ Using generic 401 message:', errorMessage);
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access forbidden. Please contact support.';
+        console.log('⚠️ Using generic 403 message:', errorMessage);
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Signup service not found. Please try again later.';
+        console.log('⚠️ Using generic 404 message:', errorMessage);
       } else if (error.response?.status === 409) {
         errorMessage = 'User already exists with this email or username';
+        console.log('⚠️ Using generic 409 message:', errorMessage);
+      } else if (error.response?.status === 422) {
+        errorMessage = 'Invalid data format. Please check your input.';
+        console.log('⚠️ Using generic 422 message:', errorMessage);
       } else if (error.response?.status === 500) {
         errorMessage = 'Server error. Please try again later.';
+        console.log('⚠️ Using generic 500 message:', errorMessage);
+      } else if (error.response?.status === 502) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+        console.log('⚠️ Using generic 502 message:', errorMessage);
+      } else if (error.response?.status === 503) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+        console.log('⚠️ Using generic 503 message:', errorMessage);
       } else if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
         errorMessage = 'Cannot connect to server. Please check your internet connection.';
+        console.log('⚠️ Using network error message:', errorMessage);
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+        console.log('⚠️ Using timeout error message:', errorMessage);
       } else if (error.response?.status === 0) {
         errorMessage = 'CORS error - server may not be configured properly';
+        console.log('⚠️ Using CORS error message:', errorMessage);
+      } else if (error.message) {
+        errorMessage = error.message;
+        console.log('⚠️ Using error.message:', errorMessage);
+      } else {
+        errorMessage = 'Signup failed. Please try again.';
+        console.log('⚠️ Using fallback message:', errorMessage);
       }
       
+      console.log('📤 Final error message being returned:', errorMessage);
       return { success: false, error: errorMessage };
     }
   };
