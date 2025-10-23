@@ -29,19 +29,39 @@ const Login = () => {
     setLoading(true);
 
     try {
+      console.log('Login attempt with:', { username: formData.username });
       const result = await login(formData.username, formData.password);
+      console.log('Login result:', result);
+      
       if (result.success) {
         // Login successful - navigate to menu
         navigate('/menu');
       } else {
-        // Login failed - show error message
+        // Login failed - show error message from backend API
+        console.log('Login failed with error:', result.error);
         setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (error) {
       // Handle unexpected errors
       console.error('Unexpected login error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        response: error.response?.data
+      });
       
-      let errorMessage = error.message || 'Login failed. Please check your credentials.';
+      let errorMessage = 'Login failed. Please check your credentials.';
+      
+      // Try to extract error from response
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       
       // If 404 error, provide helpful message
       if (error.status === 404) {
@@ -75,6 +95,9 @@ const Login = () => {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium">{error}</p>
+                  {process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-red-500 mt-1">Debug: {error}</p>
+                  )}
                 </div>
               </div>
             </div>
