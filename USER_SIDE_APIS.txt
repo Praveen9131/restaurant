@@ -1,0 +1,741 @@
+SEASIDE LIVE BAKE STUDIO - USER SIDE APIs DOCUMENTATION
+================================================================
+
+Date: October 22, 2025
+Website: https://api.seasidelbs.com
+Frontend: http://localhost:5174
+
+================================================================
+AUTHENTICATION APIs
+================================================================
+
+1. USER REGISTRATION
+-------------------
+Method: POST
+Endpoint: /signup/
+Description: Register a new customer account
+
+Request Body:
+{
+  "email": "customer@example.com",
+  "password": "securepassword123",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "+1234567890"
+}
+
+Success Response:
+{
+  "message": "User registered successfully",
+  "user_id": 38,
+  "customer_id": 31,
+  "username": "John Doe",
+  "email": "customer@example.com"
+}
+
+Error Response:
+{
+  "error": "first_name is required"
+}
+
+-------------------
+
+2. USER LOGIN
+-------------
+Method: POST
+Endpoint: /login/
+Description: Authenticate customer with email and password
+
+Request Body:
+{
+  "username": "customer@example.com",
+  "password": "securepassword123"
+}
+
+Success Response:
+{
+  "message": "Login successful",
+  "user_id": 38,
+  "username": "John Doe",
+  "email": "customer@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "customer_id": 31,
+  "customer_name": "John Doe",
+  "phone": "+1234567890",
+  "address": ""
+}
+
+Error Response:
+{
+  "error": "Invalid email or password"
+}
+
+-------------------
+
+3. USER LOGOUT
+--------------
+Method: POST
+Endpoint: /logout/
+Description: Logout current user session
+
+Request Body: None
+
+Success Response:
+{
+  "message": "Logged out successfully"
+}
+
+-------------------
+
+4. FORGOT PASSWORD
+------------------
+Method: POST
+Endpoint: /forgot-password/
+Description: Send password reset email to user
+
+Request Body:
+{
+  "email": "customer@example.com"
+}
+
+Success Response:
+{
+  "message": "Password reset email sent"
+}
+
+-------------------
+
+5. RESET PASSWORD
+-----------------
+Method: POST
+Endpoint: /reset-password/
+Description: Reset password with token
+
+Request Body:
+{
+  "token": "reset_token_here",
+  "new_password": "newpassword123"
+}
+
+Success Response:
+{
+  "message": "Password reset successfully"
+}
+
+-------------------
+
+6. CHANGE PASSWORD
+------------------
+Method: POST
+Endpoint: /change-password/
+Description: Change password for logged-in user
+
+Request Body:
+{
+  "current_password": "oldpassword123",
+  "new_password": "newpassword123"
+}
+
+Success Response:
+{
+  "message": "Password changed successfully"
+}
+
+================================================================
+MENU & CATEGORY APIs
+================================================================
+
+7. GET ALL CATEGORIES
+---------------------
+Method: GET
+Endpoint: /categories/
+Description: Retrieve all food categories
+
+Request Body: None
+
+Success Response:
+{
+  "categories": [
+    {
+      "id": 3,
+      "name": "Fried Chicken",
+      "description": "Crispy, golden fried chicken with special seasonings"
+    },
+    {
+      "id": 4,
+      "name": "Wings",
+      "description": "Spicy and flavorful chicken wings with various sauces"
+    },
+    {
+      "id": 5,
+      "name": "Pizza",
+      "description": "Freshly baked pizzas with a variety of toppings"
+    }
+  ]
+}
+
+-------------------
+
+8. GET ALL MENU ITEMS
+---------------------
+Method: GET
+Endpoint: /GetAllMenu/
+Description: Retrieve all available menu items
+
+Query Parameters:
+- available_only: true/false (filter by availability)
+- category_id: number (filter by category)
+- vegetarian_only: true/false (filter vegetarian items)
+
+Request Examples:
+GET /GetAllMenu/
+GET /GetAllMenu/?available_only=true
+GET /GetAllMenu/?category_id=5
+GET /GetAllMenu/?available_only=true&vegetarian_only=true
+
+Success Response:
+{
+  "success": true,
+  "total_items": 14,
+  "menu_items": [
+    {
+      "id": 6,
+      "name": "BBQ Chicken Wings",
+      "description": "Smoky barbecue flavored chicken wings",
+      "price": 11.99,
+      "pricing_type": "single",
+      "price_variations": {},
+      "is_available": true,
+      "is_vegetarian": false,
+      "category_id": 4,
+      "category_name": "Wings",
+      "image": "https://via.placeholder.com/300x200?text=No+Image",
+      "created_at": "2025-09-24T15:15:49+00:00"
+    }
+  ]
+}
+
+-------------------
+
+9. GET MENU BY CATEGORY
+-----------------------
+Method: GET
+Endpoint: /category-menu/
+Description: Get menu items filtered by category
+
+Query Parameters:
+- category_id: number (required)
+
+Request Example:
+GET /category-menu/?category_id=5
+
+Success Response:
+{
+  "success": true,
+  "category": {
+    "id": 5,
+    "name": "Pizza"
+  },
+  "menu_items": [
+    {
+      "id": 7,
+      "name": "Margherita Pizza",
+      "description": "Classic tomato and mozzarella pizza",
+      "price": 12.99,
+      "is_available": true,
+      "is_vegetarian": true
+    }
+  ]
+}
+
+-------------------
+
+10. GET SINGLE MENU ITEM
+------------------------
+Method: GET
+Endpoint: /menu-item/
+Description: Get details of a specific menu item
+
+Query Parameters:
+- item_id: number (required)
+
+Request Example:
+GET /menu-item/?item_id=6
+
+Success Response:
+{
+  "success": true,
+  "menu_item": {
+    "id": 6,
+    "name": "BBQ Chicken Wings",
+    "description": "Smoky barbecue flavored chicken wings",
+    "price": 11.99,
+    "pricing_type": "single",
+    "price_variations": {},
+    "is_available": true,
+    "is_vegetarian": false,
+    "category_id": 4,
+    "category_name": "Wings",
+    "image": "https://via.placeholder.com/300x200?text=No+Image"
+  }
+}
+
+-------------------
+
+11. COMPLETE MENU WITH CATEGORIES
+---------------------------------
+Method: GET
+Endpoint: /complete-menu/
+Description: Get complete menu with all categories and items (both available and unavailable) for user display
+
+Request Body: None
+
+Success Response:
+{
+  "success": true,
+  "categories": [
+    {
+      "id": 1,
+      "name": "Appetizers",
+      "description": "Starters",
+      "items_count": 5,
+      "items": [
+        {
+          "id": 1,
+          "name": "Garlic Bread",
+          "description": "Toasted bread with garlic butter",
+          "category_id": 1,
+          "image": "https://s3.url/image.jpg",
+          "is_vegetarian": true,
+          "is_available": true,
+          "pricing_type": "single",
+          "pricing": {
+            "type": "single",
+            "price": 120,
+            "display_price": "₹120"
+          }
+        },
+        {
+          "id": 2,
+          "name": "Chicken Wings",
+          "description": "Spicy chicken wings",
+          "category_id": 1,
+          "image": "https://s3.url/image2.jpg",
+          "is_vegetarian": false,
+          "is_available": false,
+          "pricing_type": "single",
+          "pricing": {
+            "type": "single",
+            "price": 150,
+            "display_price": "₹150"
+          }
+        }
+      ]
+    }
+  ]
+}
+
+-------------------
+
+12. SEARCH MENU ITEMS
+---------------------
+Method: GET
+Endpoint: /menu/search/
+Description: Search menu items by name or description
+
+Query Parameters:
+- q: string (search query)
+- available: true/false (filter by availability)
+
+Request Example:
+GET /menu/search/?q=chicken&available=true
+
+Success Response:
+{
+  "success": true,
+  "query": "chicken",
+  "results": [
+    {
+      "id": 6,
+      "name": "BBQ Chicken Wings",
+      "description": "Smoky barbecue flavored chicken wings",
+      "price": 11.99,
+      "is_available": true
+    }
+  ]
+}
+
+================================================================
+ORDER MANAGEMENT APIs
+================================================================
+
+13. CREATE ORDER
+----------------
+Method: POST
+Endpoint: /order/create/
+Description: Create a new order
+
+Request Body:
+{
+  "customer_id": 31,
+  "items": [
+    {
+      "menu_item_id": 6,
+      "quantity": 2,
+      "price": 11.99,
+      "selected_variation": "Large",
+      "special_instructions": "Extra spicy"
+    }
+  ],
+  "total_amount": 23.98,
+  "delivery_address": "123 Main Street, City, State",
+  "phone": "+1234567890",
+  "payment_method": "cash"
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Order created successfully",
+  "order_id": 27,
+  "order_number": "ORD000027",
+  "total_amount": 23.98,
+  "order_summary": {
+    "order_id": 27,
+    "order_number": "ORD000027",
+    "customer_name": "John Doe",
+    "customer_phone": "+1234567890",
+    "delivery_address": "123 Main Street, City, State",
+    "total_amount": 23.98,
+    "status": "pending",
+    "order_date": "2025-10-22T05:12:49.071626+00:00",
+    "items": [
+      {
+        "id": 6,
+        "name": "BBQ Chicken Wings",
+        "quantity": 2,
+        "unit_price": 11.99,
+        "total_price": 23.98,
+        "selected_variation": "Large",
+        "special_instructions": "Extra spicy"
+      }
+    ]
+  }
+}
+
+Error Response:
+{
+  "success": false,
+  "error": "Customer not found"
+}
+
+-------------------
+
+14. GET CUSTOMER ORDERS
+-----------------------
+Method: GET
+Endpoint: /customer_orders/
+Description: Get all orders for a specific customer
+
+Query Parameters:
+- customer_id: number (required)
+
+Request Example:
+GET /customer_orders/?customer_id=31
+
+Success Response:
+{
+  "success": true,
+  "customer_id": 31,
+  "orders": [
+    {
+      "order_id": 27,
+      "order_number": "ORD000027",
+      "total_amount": 23.98,
+      "status": "confirmed",
+      "order_date": "2025-10-22T05:12:49+00:00",
+      "delivery_address": "123 Main Street, City, State",
+      "items_count": 1,
+      "items": [
+        {
+          "id": 6,
+          "name": "BBQ Chicken Wings",
+          "quantity": 2,
+          "price": 11.99,
+          "selected_variation": "Large",
+          "special_instructions": "Extra spicy"
+        }
+      ]
+    }
+  ]
+}
+
+-------------------
+
+15. GET ORDER DETAILS
+---------------------
+Method: GET
+Endpoint: /order/{order_id}/
+Description: Get detailed information about a specific order
+
+Request Example:
+GET /order/27/
+
+Success Response:
+{
+  "success": true,
+  "order": {
+    "order_id": 27,
+    "order_number": "ORD000027",
+    "customer_name": "John Doe",
+    "customer_phone": "+1234567890",
+    "delivery_address": "123 Main Street, City, State",
+    "total_amount": 23.98,
+    "status": "confirmed",
+    "order_date": "2025-10-22T05:12:49+00:00",
+    "payment_method": "cash",
+    "items": [
+      {
+        "id": 6,
+        "name": "BBQ Chicken Wings",
+        "description": "Smoky barbecue flavored chicken wings",
+        "quantity": 2,
+        "unit_price": 11.99,
+        "total_price": 23.98,
+        "selected_variation": "Large",
+        "special_instructions": "Extra spicy"
+      }
+    ]
+  }
+}
+
+================================================================
+INQUIRY/CONTACT APIs
+================================================================
+
+16. CREATE INQUIRY
+------------------
+Method: POST
+Endpoint: /inquirycreate/
+Description: Submit a customer inquiry or contact form
+
+Request Body:
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "phone": "+1234567890",
+  "message": "Do you have vegetarian options available?"
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Thank you for your message! We will get back to you soon.",
+  "inquiry_id": 12
+}
+
+Error Response:
+{
+  "success": false,
+  "error": "Name is required"
+}
+
+================================================================
+CUSTOMER PROFILE APIs
+================================================================
+
+17. GET CUSTOMER PROFILE
+------------------------
+Method: GET
+Endpoint: /profile/
+Description: Get current customer profile information
+
+Headers:
+- Authorization: Bearer {token}
+
+Success Response:
+{
+  "success": true,
+  "customer": {
+    "id": 31,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+1234567890",
+    "address": "123 Main Street, City, State",
+    "created_at": "2025-10-22T05:10:00+00:00"
+  }
+}
+
+-------------------
+
+18. UPDATE CUSTOMER PROFILE
+---------------------------
+Method: PUT
+Endpoint: /profile/
+Description: Update customer profile information
+
+Headers:
+- Authorization: Bearer {token}
+
+Request Body:
+{
+  "name": "John Smith",
+  "phone": "+1987654321",
+  "address": "456 Oak Avenue, City, State"
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Profile updated successfully",
+  "customer": {
+    "id": 31,
+    "name": "John Smith",
+    "email": "john@example.com",
+    "phone": "+1987654321",
+    "address": "456 Oak Avenue, City, State"
+  }
+}
+
+================================================================
+ORDER STATUS VALUES
+================================================================
+
+Valid Order Statuses:
+- pending: Order received, awaiting confirmation
+- confirmed: Order confirmed by restaurant
+- preparing: Order being prepared
+- out_for_delivery: Order out for delivery
+- delivered: Order delivered successfully
+- cancelled: Order cancelled
+
+================================================================
+ERROR CODES & MESSAGES
+================================================================
+
+Common Error Responses:
+
+Authentication Errors:
+- "Invalid email or password"
+- "User not found"
+- "Token expired"
+- "first_name is required"
+- "email is required"
+- "password is required"
+
+Validation Errors:
+- "Name is required"
+- "Email is required"
+- "Phone number is required"
+- "Message is required"
+- "Please enter a valid email address"
+- "Please enter a valid phone number"
+
+Business Logic Errors:
+- "Customer not found"
+- "Menu item not found"
+- "Order not found"
+- "Insufficient quantity available"
+- "Invalid order status"
+
+Server Errors:
+- "Internal server error"
+- "Service temporarily unavailable"
+
+================================================================
+API RESPONSE FORMATS
+================================================================
+
+Success Response Format:
+{
+  "success": true,
+  "message": "Operation completed successfully",
+  "data": { ... }
+}
+
+Error Response Format:
+{
+  "success": false,
+  "error": "Error message here"
+}
+
+List Response Format:
+{
+  "success": true,
+  "total_count": 10,
+  "data": [ ... ]
+}
+
+================================================================
+AUTHENTICATION HEADERS
+================================================================
+
+For protected endpoints, include:
+Authorization: Bearer {jwt_token}
+
+Example:
+curl -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..." \
+     https://api.seasidelbs.com/profile/
+
+================================================================
+RATE LIMITING
+================================================================
+
+API Rate Limits:
+- Authentication endpoints: 5 requests per minute
+- General endpoints: 100 requests per minute
+- File upload: 10 requests per minute
+
+Rate Limit Headers:
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640995200
+
+================================================================
+CORS POLICY
+================================================================
+
+CORS Headers:
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+
+================================================================
+TESTING ENDPOINTS
+================================================================
+
+Test User Credentials:
+Email: testuser@example.com
+Password: testpass123
+
+Test Admin Credentials:
+Email: admin@seasidelbs.com
+Password: admin123
+
+================================================================
+FILE UPLOAD LIMITS
+================================================================
+
+File Upload Restrictions:
+- Maximum file size: 5MB
+- Allowed formats: PNG, JPG, JPEG, WEBP
+- Upload endpoint: /upload/
+- Storage: AWS S3
+
+================================================================
+NOTES
+================================================================
+
+1. All timestamps are in ISO 8601 format with timezone
+2. Prices are returned as numbers (not strings)
+3. Phone numbers should include country code
+4. Email addresses must be valid format
+5. All text fields are trimmed of whitespace
+6. File uploads return S3 URLs for storage
+7. Order numbers are auto-generated (ORD000001, ORD000002, etc.)
+8. Customer IDs are auto-generated sequential numbers
+
+================================================================
+END OF USER SIDE APIs DOCUMENTATION
+================================================================

@@ -1,0 +1,551 @@
+ADMIN SIDE API DOCUMENTATION
+=====================================
+
+This document contains all APIs used on the admin/owner side of the restaurant website.
+
+=====================================
+ADMIN AUTHENTICATION
+=====================================
+
+1. Create Admin/Owner Account
+-------------------------------------
+Method: POST
+Endpoint: /create-admin/
+Description: Register a new admin/owner account with superuser privileges.
+
+Request Body:
+{
+  "email": "admin@restaurant.com",
+  "password": "securepassword123",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "+1234567890",
+  "address": "123 Main Street, City, State",
+  "username": "johndoe"
+}
+
+Success Response:
+{
+  "message": "User registered successfully",
+  "user_id": 1,
+  "username": "John Doe",
+  "email": "admin@restaurant.com"
+}
+
+-------------------------------------
+
+2. Admin/Owner Login
+-------------------------------------
+Method: POST
+Endpoint: /Owner-Login/
+Description: Authenticate admin/owner with staff and superuser privileges.
+
+Request Body:
+{
+  "username": "admin@restaurant.com",
+  "password": "securepassword123"
+}
+
+Success Response:
+{
+  "message": "Login successful",
+  "user_id": 1,
+  "username": "johndoe",
+  "email": "admin@restaurant.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "is_staff": true,
+  "is_superuser": true
+}
+
+=====================================
+CATEGORY MANAGEMENT (ADMIN ONLY)
+=====================================
+
+3. Create New Category
+-------------------------------------
+Method: POST
+Endpoint: /categories/create/
+Description: Create a new category (Admin only).
+
+Request Body:
+{
+  "name": "Mexican",
+  "description": "Authentic Mexican cuisine"
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Category created successfully",
+  "category": {
+    "id": 3,
+    "name": "Mexican",
+    "description": "Authentic Mexican cuisine",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+
+-------------------------------------
+
+4. Delete Category
+-------------------------------------
+Method: POST
+Endpoint: /categories/delete/
+Description: Delete a category by ID (Admin only).
+
+Request Body:
+{
+  "category_id": 3
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Category \"Mexican\" deleted successfully"
+}
+
+-------------------------------------
+
+5. Get All Categories
+-------------------------------------
+Method: GET
+Endpoint: /categories/
+Description: Retrieve all categories.
+
+Success Response:
+{
+  "categories": [
+    {
+      "id": 1,
+      "name": "Italian",
+      "description": "Italian cuisine restaurants"
+    },
+    {
+      "id": 2,
+      "name": "Chinese",
+      "description": "Chinese food establishments"
+    }
+  ]
+}
+
+=====================================
+MENU MANAGEMENT (ADMIN ONLY)
+=====================================
+
+6. Create Menu Item
+-------------------------------------
+Method: POST
+Endpoint: /createmenuitem/
+Description: Create a new menu item (Admin only). Supports single or multiple pricing types.
+
+Request Body - Single Pricing Type:
+{
+  "name": "Cheeseburger",
+  "description": "Beef burger with cheese",
+  "category_id": 2,
+  "pricing_type": "single",
+  "price": 9.99,
+  "image": "https://example.com/burger.jpg",
+  "is_available": true,
+  "is_vegetarian": false
+}
+
+Request Body - Multiple Pricing Type:
+{
+  "name": "Pizza",
+  "description": "Customizable pizza",
+  "category_id": 1,
+  "pricing_type": "multiple",
+  "price_variations": {
+    "Small": 10.99,
+    "Medium": 14.99,
+    "Large": 18.99
+  },
+  "image": "/images/pizza.jpg",
+  "is_available": true,
+  "is_vegetarian": true
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Menu item created successfully",
+  "menu_item": {
+    "id": 3,
+    "name": "Cheeseburger",
+    "description": "Beef burger with cheese",
+    "price": 9.99,
+    "pricing_type": "single",
+    "price_variations": {},
+    "is_available": true,
+    "is_vegetarian": false,
+    "category_id": 2,
+    "category_name": "American",
+    "image": "https://example.com/burger.jpg",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+
+-------------------------------------
+
+7. Update Menu Item
+-------------------------------------
+Method: POST
+Endpoint: /updatemenuitem/
+Description: Update an existing menu item by ID (Admin only).
+
+Request Body:
+{
+  "item_id": 1,
+  "name": "Updated Burger",
+  "price": 11.99,
+  "is_available": false,
+  "category_id": 3
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Menu item updated successfully",
+  "item_id": 1,
+  "updated_fields": ["name", "price", "is_available", "category_id"],
+  "menu_item": {
+    "id": 1,
+    "name": "Updated Burger",
+    "description": "Beef burger with cheese",
+    "price": "11.99",
+    "category": "Premium Burgers",
+    "is_available": false,
+    "is_vegetarian": false,
+    "image": "/images/burger.jpg"
+  }
+}
+
+-------------------------------------
+
+8. Get All Menu Items with Filters
+-------------------------------------
+Method: GET
+Endpoint: /GetAllMenu/
+Description: Retrieve all menu items with optional filtering by category, availability, and vegetarian options.
+
+Query Parameters:
+- category_id: Filter by category ID.
+- available_only: Filter by availability (true/false).
+- vegetarian_only: Filter by vegetarian status (true/false).
+
+Request Examples:
+GET /GetAllMenu/
+GET /GetAllMenu/?category_id=1
+GET /GetAllMenu/?available_only=true&vegetarian_only=true
+GET /GetAllMenu/?category_id=2&available_only=false
+
+Success Response:
+{
+  "success": true,
+  "total_items": 2,
+  "menu_items": [
+    {
+      "id": 1,
+      "name": "Margherita Pizza",
+      "description": "Classic cheese pizza",
+      "price": 12.99,
+      "pricing_type": "single",
+      "price_variations": {},
+      "is_available": true,
+      "is_vegetarian": true,
+      "category_id": 1,
+      "category_name": "Italian",
+      "image": "/images/pizza.jpg",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+
+-------------------------------------
+
+9. Delete Menu Item
+-------------------------------------
+Method: POST
+Endpoint: /deletemenuitem/
+Description: Delete a menu item by ID (Admin only).
+
+Request Body:
+{
+  "item_id": 2
+}
+
+Success Response:
+{
+  "success": true,
+  "message": "Menu item deleted successfully"
+}
+
+=====================================
+INQUIRY MANAGEMENT (ADMIN ONLY)
+=====================================
+
+10. Get All Inquiries
+-------------------------------------
+Method: GET
+Endpoint: /inquirylist/
+Description: Retrieve all customer inquiries/enquiries.
+
+Success Response:
+[
+  {
+    "id": 1,
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "phone": "5551234567",
+    "message": "Do you have vegetarian options available?",
+    "status": "resolved",
+    "created_at": "2025-09-25T11:10:59Z",
+    "updated_at": "2025-10-22T04:51:16Z"
+  },
+  {
+    "id": 2,
+    "name": "Test User",
+    "email": "test@example.com",
+    "phone": "+91 98765 43210",
+    "message": "This is a test inquiry from the customer website",
+    "status": "new",
+    "created_at": "2025-09-28T06:38:36Z",
+    "updated_at": null
+  }
+]
+
+-------------------------------------
+
+11. Update Inquiry Status
+-------------------------------------
+Method: POST
+Endpoint: /inquiryupdate/
+Description: Update the status of a customer inquiry.
+
+Request Body:
+{
+  "id": 1,
+  "status": "in_progress"
+}
+
+Valid Status Values:
+- in_progress
+- resolved
+
+Success Response:
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Jane Smith",
+    "phone": "5551234567",
+    "email": "jane.smith@example.com",
+    "message": "Do you have vegetarian options available?",
+    "status": "resolved",
+    "created_at": "2025-09-25T11:10:59Z",
+    "updated_at": "2025-10-22T04:51:15.700Z"
+  }
+}
+
+=====================================
+FILE MANAGEMENT (ADMIN ONLY)
+=====================================
+
+12. Upload File
+-------------------------------------
+Method: POST
+Endpoint: /upload/
+Description: Upload files (images, documents, etc.) to the server.
+
+Request Body:
+Content-Type: multipart/form-data
+
+Form Data:
+- file: [File to upload]
+
+Success Response:
+{
+  "file_name": "image_2024.jpg",
+  "s3_url": "https://seasidesample.s3.ap-south-2.amazonaws.com/dishes/image_2024.jpg",
+  "file_size": 245760,
+  "folder": "dishes/"
+}
+
+=====================================
+ADMIN DASHBOARD & ORDERS MANAGEMENT
+=====================================
+
+13. Admin Dashboard Statistics
+-------------------------------------
+Method: GET
+Endpoint: /Dashboard/
+Description: Retrieve comprehensive dashboard statistics including today's metrics, total counts, status breakdown, and recent orders.
+
+Success Response:
+{
+  "success": true,
+  "stats": {
+    "today_orders": 15,
+    "today_revenue": 450.75,
+    "total_orders": 1250,
+    "total_customers": 350,
+    "total_menu_items": 45,
+    "status_counts": {
+      "pending": 5,
+      "confirmed": 3,
+      "preparing": 4,
+      "out_for_delivery": 2,
+      "delivered": 1200,
+      "cancelled": 36
+    }
+  },
+  "recent_orders": [
+    {
+      "order_id": 1250,
+      "order_number": "ORD001250",
+      "customer_name": "John Doe",
+      "total_amount": 35.99,
+      "status": "preparing",
+      "order_date": "2024-01-15T14:30:00Z"
+    }
+  ]
+}
+
+-------------------------------------
+
+14. Get Orders with Filtering (Admin View)
+-------------------------------------
+Method: GET
+Endpoint: /AdminOrdersView/
+Description: Retrieve all orders with advanced filtering, search, and status breakdown.
+
+Query Parameters:
+- status: Filter by status (pending, confirmed, preparing, out_for_delivery, delivered, cancelled).
+- date_from: Filter orders from date (YYYY-MM-DD).
+- date_to: Filter orders to date (YYYY-MM-DD).
+- search: Search by order number, customer name, phone, or address.
+
+Request Examples:
+GET /AdminOrdersView/
+GET /AdminOrdersView/?status=pending
+GET /AdminOrdersView/?date_from=2024-01-01&date_to=2024-01-15
+GET /AdminOrdersView/?search=ORD001250
+GET /AdminOrdersView/?search=John
+GET /AdminOrdersView/?status=preparing&date_from=2024-01-10
+
+Success Response:
+{
+  "success": true,
+  "total_orders": 1250,
+  "status_counts": {
+    "pending": 5,
+    "confirmed": 3,
+    "preparing": 4,
+    "out_for_delivery": 2,
+    "delivered": 1200,
+    "cancelled": 36
+  },
+  "filtered_orders": 4,
+  "valid_statuses": ["pending", "confirmed", "preparing", "out_for_delivery", "delivered", "cancelled"],
+  "orders": [
+    {
+      "order_id": 1250,
+      "order_number": "ORD001250",
+      "customer_name": "John Doe",
+      "customer_phone": "+1234567890",
+      "total_amount": 35.99,
+      "status": "preparing",
+      "order_date": "2024-01-15T14:30:00Z",
+      "delivery_address": "123 Main St, City, State",
+      "phone": "+1234567890",
+      "items_count": 3,
+      "items": [
+        {
+          "id": 1,
+          "name": "Margherita Pizza",
+          "quantity": 1,
+          "price": 12.99,
+          "selected_variation": "Large",
+          "special_instructions": "Extra cheese"
+        }
+      ]
+    }
+  ]
+}
+
+-------------------------------------
+
+15. Update Order Status
+-------------------------------------
+Method: POST
+Endpoint: /UpdateOrderStatus/
+Description: Update the status of an order using order ID or order number.
+
+Request Body (Using Order Number):
+{
+  "order_id": "ORD001250",
+  "status": "preparing"
+}
+
+OR (Using Order ID):
+{
+  "order_id": 1250,
+  "status": "out_for_delivery"
+}
+
+Valid Status Values:
+- pending
+- confirmed
+- preparing
+- out_for_delivery
+- delivered
+- cancelled
+
+Success Response:
+{
+  "success": true,
+  "message": "Order status updated from preparing to out_for_delivery",
+  "order_id": 1250,
+  "order_number": "ORD001250",
+  "old_status": "preparing",
+  "new_status": "out_for_delivery",
+  "status": "out_for_delivery"
+}
+
+=====================================
+SUMMARY
+=====================================
+
+Total Admin APIs: 15
+
+Authentication: 2 APIs
+- Create Admin Account
+- Admin Login
+
+Category Management: 3 APIs
+- Create Category
+- Delete Category
+- Get All Categories
+
+Menu Management: 4 APIs
+- Create Menu Item
+- Update Menu Item
+- Get All Menu Items
+- Delete Menu Item
+
+Inquiry Management: 2 APIs
+- Get All Inquiries
+- Update Inquiry Status
+
+File Management: 1 API
+- Upload File
+
+Dashboard & Orders: 3 APIs
+- Dashboard Statistics
+- Admin Orders View
+- Update Order Status
+
+=====================================
+
