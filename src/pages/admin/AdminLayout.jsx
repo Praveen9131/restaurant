@@ -133,6 +133,12 @@ const AdminLayout = () => {
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={() => {
+                    console.log('AdminLayout: Navigating to:', item.path);
+                    if (item.path === '/admin/menu') {
+                      console.log('AdminLayout: Menu button clicked - should load menu page');
+                    }
+                  }}
                   className={`group flex items-center px-4 py-3 text-sm font-normal rounded-lg transition-all duration-200 ${
                     isActive
                       ? 'bg-[#FC8019] text-white shadow-md'

@@ -29,8 +29,23 @@ const Checkout = () => {
     setLoading(true);
 
     try {
+      // Debug logging
+      console.log('User data:', user);
+      console.log('Cart data:', cart);
+      
+      const customerId = user?.customerId || user?.id;
+      if (!customerId) {
+        throw new Error('Customer ID not found. Please login again.');
+      }
+
+      // Validate that all cart items have valid menu_item_id
+      const invalidItems = cart.filter(item => !item.menu_item_id);
+      if (invalidItems.length > 0) {
+        throw new Error('Some items in your cart are invalid. Please refresh the page and try again.');
+      }
+
       const orderData = {
-        customer_id: user?.customerId || user?.id,
+        customer_id: customerId,
         delivery_address: formData.delivery_address,
         phone: formData.phone,
         items: cart.map((item) => ({
@@ -41,15 +56,24 @@ const Checkout = () => {
         })),
       };
 
+      console.log('Order data being sent:', orderData);
       const response = await orderAPI.create(orderData);
+      console.log('Order response:', response);
       
       if (response.data.success) {
         clearCart();
         alert(`Order placed successfully! Order Number: ${response.data.order_number}`);
         navigate('/orders');
+      } else {
+        // Handle specific error cases
+        if (response.data.error && response.data.error.includes('menu items not found')) {
+          throw new Error('Some items in your cart are no longer available. Please refresh the page and try again.');
+        }
+        throw new Error(response.data.message || response.data.error || 'Order creation failed');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to place order. Please try again.');
+      console.error('Order creation error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }

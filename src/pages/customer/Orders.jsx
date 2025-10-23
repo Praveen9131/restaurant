@@ -13,37 +13,6 @@ const Orders = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [autoReloading, setAutoReloading] = useState(false);
 
-  useEffect(() => {
-    // Wait for auth to finish loading before checking user
-    if (authLoading) {
-      console.log('Auth still loading...');
-      return;
-    }
-
-    console.log('Auth loaded. User:', user);
-    console.log('User from localStorage:', localStorage.getItem('user'));
-
-    if (!user) {
-      console.log('No user found, redirecting to login');
-      navigate('/login');
-      return;
-    }
-
-    fetchOrders();
-
-    // Set up auto-reload every 15 seconds
-    const interval = setInterval(() => {
-      console.log('Auto-reloading orders...');
-      fetchOrders(true); // Pass true to indicate this is an auto-reload
-    }, 15000); // 15 seconds
-
-    // Cleanup interval on component unmount
-    return () => {
-      console.log('Clearing auto-reload interval');
-      clearInterval(interval);
-    };
-  }, [user, navigate, authLoading, fetchOrders]);
-
   const fetchOrders = useCallback(async (isAutoReload = false) => {
     try {
       // Fix: Use camelCase property name that matches AuthContext
@@ -53,38 +22,46 @@ const Orders = () => {
         setAutoReloading(true);
       }
       
-      console.log('Fetching orders for user:', user);
-      console.log('Customer ID:', customerId);
-      
       if (!customerId) {
         throw new Error('Customer ID not found');
       }
       
-      console.log('Calling orderAPI.getCustomerOrders with customerId:', customerId);
-      
-      // Test the API call directly
-      const testUrl = `https://api.seasidelbs.com/customer_orders/?customer_id=${customerId}`;
-      console.log('Testing API URL:', testUrl);
-      
       const response = await orderAPI.getCustomerOrders(customerId);
-      console.log('Orders API response:', response.data);
       
       setOrders(response.data.orders || []);
       setLastUpdated(new Date());
       setError(''); // Clear any previous errors on successful fetch
     } catch (err) {
-      console.error('Failed to fetch orders:', err);
-      console.error('Error details:', {
-        message: err.message,
-        status: err.status,
-        response: err.response?.data
-      });
       setError(err.response?.data?.message || err.message || 'Failed to fetch orders');
     } finally {
       setLoading(false);
       setAutoReloading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    // Wait for auth to finish loading before checking user
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    fetchOrders();
+
+    // Set up auto-reload every 15 seconds
+    const interval = setInterval(() => {
+      fetchOrders(true); // Pass true to indicate this is an auto-reload
+    }, 15000); // 15 seconds
+
+    // Cleanup interval on component unmount
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user, navigate, authLoading, fetchOrders]);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -135,6 +112,7 @@ const Orders = () => {
                   </svg>
                   <span>Refresh</span>
                 </button>
+                
               </div>
             </div>
 
@@ -143,6 +121,7 @@ const Orders = () => {
             {error}
           </div>
         )}
+
 
         {orders.length === 0 ? (
           <div className="text-center py-12 card">

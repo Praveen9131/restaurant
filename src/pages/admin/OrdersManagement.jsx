@@ -3,27 +3,64 @@ import { useNotification } from '../../context/NotificationContext';
 import { orderAPI } from '../../services/api';
 
 const OrdersManagement = () => {
+  console.log('OrdersManagement: Component is rendering...');
+  
   const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusCounts, setStatusCounts] = useState({});
   const { showSuccess, showError } = useNotification();
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log('OrdersManagement: Fetching orders...');
+      const response = await orderAPI.getAll();
+      console.log('OrdersManagement: Orders response:', response.data);
+      
+      const ordersData = response.data.orders || [];
+      setOrders(ordersData);
+      setStatusCounts(response.data.status_counts || {});
+      
+      console.log('OrdersManagement: Successfully fetched orders:', {
+        total: ordersData.length,
+        statusCounts: response.data.status_counts
+      });
+    } catch (error) {
+      console.error('OrdersManagement: Error fetching orders:', error);
+      showError('Failed to fetch orders: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  }, [showError]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await orderAPI.getAll();
-      setOrders(response.data.orders || []);
-    } catch (error) {
-      showError('Failed to fetch orders');
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
+  // Filter orders based on status and search term
+  useEffect(() => {
+    let filtered = orders;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => order.status === statusFilter);
     }
-  }, [showError]);
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(order => 
+        order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customer_phone?.includes(searchTerm)
+      );
+    }
+
+    setFilteredOrders(filtered);
+  }, [orders, statusFilter, searchTerm]);
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
@@ -64,12 +101,21 @@ const OrdersManagement = () => {
   };
 
   if (loading) {
+    console.log('OrdersManagement: Still loading...');
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="ml-4 text-gray-600">Loading orders...</div>
       </div>
     );
   }
+
+  console.log('OrdersManagement: Rendering with data:', {
+    loading,
+    ordersLength: orders.length,
+    filteredOrdersLength: filteredOrders.length,
+    statusCounts
+  });
 
   return (
     <div className="space-y-6 w-full overflow-x-hidden">
@@ -78,6 +124,34 @@ const OrdersManagement = () => {
         <div>
           <h1 className="text-2xl font-swiggy font-bold text-gray-900">Orders Management</h1>
           <p className="text-gray-600 mt-1">Manage customer orders and their status</p>
+          
+          {/* Statistics */}
+          <div className="flex space-x-6 mt-4">
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-gray-700">{orders.length}</span> Total Orders
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-yellow-600">{statusCounts.pending || 0}</span> Pending
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-blue-600">{statusCounts.confirmed || 0}</span> Confirmed
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-green-600">{statusCounts.delivered || 0}</span> Delivered
+              </span>
+            </div>
+          </div>
         </div>
         <button
           onClick={fetchOrders}
@@ -88,6 +162,60 @@ const OrdersManagement = () => {
           </svg>
           <span>Refresh</span>
         </button>
+      </div>
+
+      {/* Debug Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-2">Debug Information</h3>
+        <div className="text-xs text-blue-700 space-y-1">
+          <div>Total Orders: {orders.length}</div>
+          <div>Filtered Orders: {filteredOrders.length}</div>
+          <div>Status Filter: {statusFilter}</div>
+          <div>Search Term: "{searchTerm}"</div>
+          <div>Status Counts: {JSON.stringify(statusCounts)}</div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search Orders</label>
+            <input
+              type="text"
+              placeholder="Search by customer name, order number, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            />
+          </div>
+          
+          {/* Status Filter */}
+          <div className="md:w-64">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            >
+              <option value="all">All Orders ({orders.length})</option>
+              <option value="pending">Pending ({statusCounts.pending || 0})</option>
+              <option value="confirmed">Confirmed ({statusCounts.confirmed || 0})</option>
+              <option value="preparing">Preparing ({statusCounts.preparing || 0})</option>
+              <option value="out_for_delivery">Out for Delivery ({statusCounts.out_for_delivery || 0})</option>
+              <option value="delivered">Delivered ({statusCounts.delivered || 0})</option>
+              <option value="cancelled">Cancelled ({statusCounts.cancelled || 0})</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Results Summary */}
+        <div className="mt-4 text-sm text-gray-600">
+          Showing {filteredOrders.length} of {orders.length} orders
+          {searchTerm && ` matching "${searchTerm}"`}
+          {statusFilter !== 'all' && ` with status "${statusFilter}"`}
+        </div>
       </div>
 
       {/* Orders List */}
@@ -120,7 +248,7 @@ const OrdersManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <tr key={order.order_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     #{order.order_number || order.order_id}
@@ -170,13 +298,20 @@ const OrdersManagement = () => {
           </table>
         </div>
 
-        {orders.length === 0 && (
+        {filteredOrders.length === 0 && (
           <div className="text-center py-12">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No orders</h3>
-            <p className="mt-1 text-sm text-gray-500">No orders have been placed yet.</p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              {orders.length === 0 ? 'No orders' : 'No orders found'}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {orders.length === 0 
+                ? 'No orders have been placed yet.' 
+                : 'Try adjusting your search or filter criteria.'
+              }
+            </p>
           </div>
         )}
       </div>

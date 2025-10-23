@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNotification } from '../../context/NotificationContext';
 import { menuAPI, categoryAPI, fileAPI } from '../../services/api';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 const MenuManagement = () => {
+  console.log('MenuManagement: Component is rendering...');
+  
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [activeTab, setActiveTab] = useState('available'); // 'available' or 'unavailable'
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'available', or 'unavailable'
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -24,32 +27,55 @@ const MenuManagement = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const { showSuccess, showError } = useNotification();
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
+    console.log('MenuManagement: Starting to fetch data...');
     try {
-      // Backend has issue with available_only parameter, so always fetch all items
+      // Use the correct API endpoint from documentation
+      console.log('MenuManagement: Calling menuAPI.getAll()...');
       const menuResponse = await menuAPI.getAll();
+      console.log('MenuManagement: Menu API response:', menuResponse);
+      
+      console.log('MenuManagement: Calling categoryAPI.getAll()...');
       const categoriesResponse = await categoryAPI.getAll();
+      console.log('MenuManagement: Categories API response:', categoriesResponse);
       
       const allMenuItems = menuResponse.data.menu_items || [];
-      const availableItems = allMenuItems.filter(item => item.is_available);
-      const unavailableItems = allMenuItems.filter(item => !item.is_available);
       
-      // Sort items: available first, then unavailable
-      const sortedItems = [...availableItems, ...unavailableItems];
+      // Sort items by availability and then by name
+      const sortedItems = allMenuItems.sort((a, b) => {
+        // First sort by availability (available first)
+        if (a.is_available !== b.is_available) {
+          return b.is_available - a.is_available;
+        }
+        // Then sort by name alphabetically
+        return a.name.localeCompare(b.name);
+      });
+      
       setMenuItems(sortedItems);
       setCategories(categoriesResponse.data.categories || []);
+      
+      console.log('MenuManagement: Successfully fetched data:', {
+        total: allMenuItems.length,
+        available: allMenuItems.filter(item => item.is_available).length,
+        unavailable: allMenuItems.filter(item => !item.is_available).length
+      });
     } catch (error) {
+      console.error('MenuManagement: Error fetching data:', error);
+      console.error('MenuManagement: Error response:', error.response);
       showError('Failed to fetch data: ' + (error.response?.data?.message || error.message));
-      console.error('Error fetching data:', error);
+      
+      // Set empty arrays to prevent rendering issues
+      setMenuItems([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
   }, [showError]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -330,15 +356,26 @@ const MenuManagement = () => {
   // Helper functions to get filtered items
   const getAvailableItems = () => menuItems.filter(item => item.is_available);
   const getUnavailableItems = () => menuItems.filter(item => !item.is_available);
-  const getCurrentTabItems = () => activeTab === 'available' ? getAvailableItems() : getUnavailableItems();
+  const getCurrentTabItems = () => {
+    switch (activeTab) {
+      case 'available':
+        return getAvailableItems();
+      case 'unavailable':
+        return getUnavailableItems();
+      default:
+        return menuItems;
+    }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="ml-4 text-gray-600">Loading menu items...</div>
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
@@ -347,6 +384,28 @@ const MenuManagement = () => {
         <div>
           <h1 className="text-2xl font-swiggy font-bold text-gray-900">Menu Management</h1>
           <p className="text-gray-600 mt-1">Manage your menu items</p>
+          
+          {/* Statistics */}
+          <div className="flex space-x-6 mt-4">
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-green-600">{getAvailableItems().length}</span> Available
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-red-600">{getUnavailableItems().length}</span> Unavailable
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-gray-700">{menuItems.length}</span> Total Items
+              </span>
+            </div>
+          </div>
         </div>
         <button
           onClick={openModal}
@@ -363,41 +422,87 @@ const MenuManagement = () => {
       <div className="mb-8">
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
           <button
+            onClick={() => setActiveTab('all')}
+            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 flex items-center space-x-2 ${
+              activeTab === 'all'
+                ? 'bg-white text-blue-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            <span>All ({menuItems.length})</span>
+          </button>
+          <button
             onClick={() => setActiveTab('available')}
-            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 ${
+            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 flex items-center space-x-2 ${
               activeTab === 'available'
                 ? 'bg-white text-green-700 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Available Items ({getAvailableItems().length})
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Available ({getAvailableItems().length})</span>
           </button>
           <button
             onClick={() => setActiveTab('unavailable')}
-            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 ${
+            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 flex items-center space-x-2 ${
               activeTab === 'unavailable'
                 ? 'bg-white text-red-700 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Unavailable Items ({getUnavailableItems().length})
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Unavailable ({getUnavailableItems().length})</span>
           </button>
+        </div>
+      </div>
+
+
+      {/* Debug Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-2">Debug Information</h3>
+        <div className="text-xs text-blue-700 space-y-1">
+          <div>Total Menu Items: {menuItems.length}</div>
+          <div>Available Items: {getAvailableItems().length}</div>
+          <div>Unavailable Items: {getUnavailableItems().length}</div>
+          <div>Current Tab: {activeTab}</div>
+          <div>Current Tab Items: {getCurrentTabItems().length}</div>
+          <div>Categories: {categories.length}</div>
         </div>
       </div>
 
       {/* Menu Items Grid */}
       <div className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {getCurrentTabItems().map((item) => (
-          <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow duration-200 ${
+        {getCurrentTabItems().length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg mb-2">No menu items found</div>
+            <div className="text-gray-400 text-sm">
+              {activeTab === 'available' ? 'No available items' : 
+               activeTab === 'unavailable' ? 'No unavailable items' : 
+               'No items in database'}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {getCurrentTabItems().map((item) => (
+          <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-200 ${
             !item.is_available 
-              ? 'border-red-200 opacity-75 relative' 
+              ? 'border-red-300 bg-red-50 relative' 
               : 'border-gray-200'
           }`}>
             {/* Unavailable Overlay */}
             {!item.is_available && (
-              <div className="absolute top-3 right-3 z-10 bg-red-500 text-white px-3 py-1 rounded-lg shadow-lg font-bold text-xs">
-                UNAVAILABLE
+              <div className="absolute top-3 right-3 z-10 bg-red-600 text-white px-3 py-1 rounded-lg shadow-lg font-bold text-xs flex items-center space-x-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>UNAVAILABLE</span>
               </div>
             )}
             
@@ -511,27 +616,9 @@ const MenuManagement = () => {
             </div>
           </div>
         ))}
-        </div>
-      </div>
-
-
-      {menuItems.length === 0 && (
-        <div className="text-center py-12">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No menu items</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by creating a new menu item.</p>
-          <div className="mt-6">
-            <button
-              onClick={openModal}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-swiggy font-semibold px-6 py-3 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Add Menu Item
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
@@ -841,4 +928,12 @@ const MenuManagement = () => {
   );
 };
 
-export default MenuManagement;
+const MenuManagementWithErrorBoundary = () => {
+  return (
+    <ErrorBoundary>
+      <MenuManagement />
+    </ErrorBoundary>
+  );
+};
+
+export default MenuManagementWithErrorBoundary;

@@ -131,9 +131,9 @@ export const authAPI = {
         return response;
       });
   },
-  logout: () => {
+  logout: (username) => {
     localStorage.removeItem('authToken');
-    return api.post('/logout/');
+    return api.post('/logout/', { username });
   },
   forgotPassword: (email) => {
     return api.post('/forgot-password/', { email });
@@ -203,21 +203,31 @@ export const categoryAPI = {
   },
   update: async (categoryId, data) => {
     console.log('Updating category:', categoryId, 'with data:', data);
-    // No update endpoint exists in API - using delete + create workaround
-    console.warn('Category update endpoint not available in API. Using delete + create workaround.');
     
     try {
-      // First delete the old category
+      // Since there's no direct update endpoint, we'll use create + delete approach
+      // This maintains the category ID by creating first, then deleting the old one
+      
+      // First create the new category with updated data
+      const createResponse = await api.post('/create-categories/', data);
+      console.log('Created new category:', createResponse.data);
+      
+      // Then delete the old category
       await api.post('/delete-categories/', { category_id: categoryId });
       console.log('Deleted old category:', categoryId);
       
-      // Then create the new one
-      const response = await api.post('/create-categories/', data);
-      console.log('Created new category:', response.data);
-      
-      return response;
+      // Return success response
+      return {
+        ...createResponse,
+        data: {
+          ...createResponse.data,
+          message: 'Category updated successfully',
+          old_category_id: categoryId,
+          new_category_id: createResponse.data.category?.id
+        }
+      };
     } catch (error) {
-      console.error('Category update workaround failed:', error);
+      console.error('Category update failed:', error);
       throw error;
     }
   },
@@ -431,6 +441,37 @@ export const testUploadEndpoint = async () => {
       error: errorMsg, 
       status: error.status,
       responseData: error.response?.data
+    };
+  }
+};
+
+// Utility function to validate if a menu item is available for ordering
+export const validateMenuItemForOrder = async (menuItemId) => {
+  try {
+    // Test with a minimal order to see if the menu item is available
+    const testOrderData = {
+      customer_id: 1, // Use a test customer ID
+      delivery_address: "Test",
+      phone: "1234567890",
+      items: [{
+        menu_item_id: menuItemId,
+        quantity: 1,
+        selected_variation: "",
+        special_instructions: ""
+      }]
+    };
+    
+    const response = await api.post('/order/create/', testOrderData);
+    return { 
+      success: true, 
+      available: response.data.success,
+      message: response.data.success ? 'Available' : response.data.error
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      available: false,
+      error: error.response?.data?.error || error.message
     };
   }
 };

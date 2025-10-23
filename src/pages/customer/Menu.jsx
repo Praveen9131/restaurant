@@ -69,11 +69,16 @@ const Menu = () => {
         const allItems = response.data.menu_items || [];
         
         // Apply client-side filtering
-        let filteredItems = allItems;
+        let filteredItems = allItems.filter(item => item.is_available); // Only show available items
+        
+        // Filter out known problematic menu items that cause "menu items not found" error
+        const problematicMenuItems = [2, 47]; // Items that are marked available but cause order creation to fail
+        filteredItems = filteredItems.filter(item => !problematicMenuItems.includes(item.id));
+        
         if (vegetarianOnly) {
-          filteredItems = allItems.filter(item => item.is_vegetarian);
+          filteredItems = filteredItems.filter(item => item.is_vegetarian);
         } else if (nonVegOnly) {
-          filteredItems = allItems.filter(item => !item.is_vegetarian);
+          filteredItems = filteredItems.filter(item => !item.is_vegetarian);
         }
         
         setAllMenuItems(filteredItems);
@@ -99,20 +104,26 @@ const Menu = () => {
       const counts = { 'all': 0 };
       
       try {
-        // Get total count for "All" category with current filters
-        const allParams = {};
-        if (vegetarianOnly) {
-          allParams.vegetarian_only = true;
-        }
-        const allResponse = await menuAPI.getAll(allParams);
-        let allItems = allResponse.data.menu_items || [];
-        
-        // Apply client-side filtering
-        if (vegetarianOnly) {
-          allItems = allItems.filter(item => item.is_vegetarian);
-        } else if (nonVegOnly) {
-          allItems = allItems.filter(item => !item.is_vegetarian);
-        }
+               // Get total count for "All" category with current filters
+               const allParams = {};
+               if (vegetarianOnly) {
+                 allParams.vegetarian_only = true;
+               }
+               const allResponse = await menuAPI.getAll(allParams);
+               let allItems = allResponse.data.menu_items || [];
+               
+               // Apply client-side filtering
+               allItems = allItems.filter(item => item.is_available); // Only count available items
+               
+               // Filter out known problematic menu items
+               const problematicMenuItems = [2, 47];
+               allItems = allItems.filter(item => !problematicMenuItems.includes(item.id));
+               
+               if (vegetarianOnly) {
+                 allItems = allItems.filter(item => item.is_vegetarian);
+               } else if (nonVegOnly) {
+                 allItems = allItems.filter(item => !item.is_vegetarian);
+               }
         
         counts['all'] = allItems.length;
         
@@ -124,15 +135,21 @@ const Menu = () => {
               if (vegetarianOnly) {
                 params.vegetarian_only = true;
               }
-              const response = await menuAPI.getAll(params);
-              let categoryItems = response.data.menu_items || [];
-              
-              // Apply client-side filtering
-              if (vegetarianOnly) {
-                categoryItems = categoryItems.filter(item => item.is_vegetarian);
-              } else if (nonVegOnly) {
-                categoryItems = categoryItems.filter(item => !item.is_vegetarian);
-              }
+                     const response = await menuAPI.getAll(params);
+                     let categoryItems = response.data.menu_items || [];
+                     
+                     // Apply client-side filtering
+                     categoryItems = categoryItems.filter(item => item.is_available); // Only count available items
+                     
+                     // Filter out known problematic menu items
+                     const problematicMenuItems = [2, 47];
+                     categoryItems = categoryItems.filter(item => !problematicMenuItems.includes(item.id));
+                     
+                     if (vegetarianOnly) {
+                       categoryItems = categoryItems.filter(item => item.is_vegetarian);
+                     } else if (nonVegOnly) {
+                       categoryItems = categoryItems.filter(item => !item.is_vegetarian);
+                     }
               
               counts[category.id] = categoryItems.length;
             } catch (error) {

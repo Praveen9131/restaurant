@@ -7,7 +7,6 @@ const Signup = () => {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -27,9 +26,8 @@ const Signup = () => {
     
     switch(name) {
       case 'first_name':
-      case 'last_name':
         if (!value.trim()) {
-          errors[name] = 'This field is required';
+          errors[name] = 'First name is required';
         } else if (value.length < 2) {
           errors[name] = 'Must be at least 2 characters';
         } else if (!/^[a-zA-Z\s]+$/.test(value)) {
@@ -37,15 +35,12 @@ const Signup = () => {
         }
         break;
         
-      case 'username':
-        if (!value.trim()) {
-          errors[name] = 'Username is required';
-        } else if (value.length < 3) {
-          errors[name] = 'Must be at least 3 characters';
-        } else if (value.length > 20) {
-          errors[name] = 'Must be less than 20 characters';
-        } else if (!/^[a-zA-Z0-9_]+$/.test(value)) {
-          errors[name] = 'Only letters, numbers and underscore allowed';
+      case 'last_name':
+        // Last name is optional, but if provided, validate it
+        if (value.trim() && value.length < 2) {
+          errors[name] = 'Must be at least 2 characters';
+        } else if (value.trim() && !/^[a-zA-Z\s]+$/.test(value)) {
+          errors[name] = 'Only letters and spaces allowed';
         }
         break;
         
@@ -84,23 +79,23 @@ const Signup = () => {
         break;
         
       case 'confirmPassword':
-        if (value !== formData.password) {
+        if (!value) {
+          errors[name] = 'Please confirm your password';
+        } else if (value !== formData.password) {
           errors[name] = 'Passwords do not match';
         }
         break;
         
       case 'phone':
-        if (!value.trim()) {
-          errors[name] = 'Phone number is required';
-        } else if (!/^[+]?[\d\s\-()]{10,15}$/.test(value)) {
+        // Phone is optional, but if provided, validate it
+        if (value.trim() && !/^[+]?[\d\s\-()]{10,15}$/.test(value)) {
           errors[name] = 'Please enter a valid phone number (10-15 digits)';
         }
         break;
         
       case 'address':
-        if (!value.trim()) {
-          errors[name] = 'Address is required';
-        } else if (value.length < 10) {
+        // Address is optional, but if provided, validate it
+        if (value.trim() && value.length < 10) {
           errors[name] = 'Please enter a complete address (min 10 characters)';
         }
         break;
@@ -134,10 +129,21 @@ const Signup = () => {
     setError('');
     setLoading(true);
 
-    // Validate all fields
+    // Validate only mandatory fields
+    const mandatoryFields = ['email', 'first_name', 'password'];
     const allErrors = {};
-    Object.keys(formData).forEach(key => {
-      if (key !== 'confirmPassword') {
+    
+    mandatoryFields.forEach(key => {
+      const errors = validateField(key, formData[key]);
+      if (errors[key]) {
+        allErrors[key] = errors[key];
+      }
+    });
+    
+    // Validate optional fields only if they have values
+    const optionalFields = ['last_name', 'phone', 'address'];
+    optionalFields.forEach(key => {
+      if (formData[key].trim()) {
         const errors = validateField(key, formData[key]);
         if (errors[key]) {
           allErrors[key] = errors[key];
@@ -158,9 +164,20 @@ const Signup = () => {
       return;
     }
 
-    // Remove confirmPassword before sending to API
+    // Remove confirmPassword and prepare data for API
     const { confirmPassword: _confirmPassword, ...signupData } = formData;
-    const result = await signup(signupData);
+    
+    // Ensure optional fields are sent as empty strings if not provided
+    const apiData = {
+      email: signupData.email,
+      password: signupData.password,
+      first_name: signupData.first_name,
+      last_name: signupData.last_name || '',
+      phone: signupData.phone || '',
+      address: signupData.address || ''
+    };
+    
+    const result = await signup(apiData);
     
     if (result.success) {
       alert('Account created successfully! Please login.');
@@ -192,6 +209,7 @@ const Signup = () => {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Create Account</h1>
           <p className="text-white/90 text-lg">Join us and start ordering delicious food!</p>
+          <p className="text-white/70 text-sm mt-2">Only email, first name, and password are required</p>
         </div>
 
         <div className="card p-8 professional-shadow">
@@ -235,19 +253,18 @@ const Signup = () => {
 
               <div>
                 <label className="block text-gray-700 font-medium mb-2">
-                  Last Name *
+                  Last Name
                 </label>
                 <input
                   type="text"
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleChange}
-                  required
                   minLength="2"
                   maxLength="50"
                   pattern="[a-zA-Z\s]+"
                   className={`input-field ${fieldErrors.last_name ? 'border-red-500 focus:ring-red-500' : formData.last_name.length >= 2 ? 'border-green-500' : ''}`}
-                  placeholder="Doe"
+                  placeholder="Doe (optional)"
                 />
                 {fieldErrors.last_name && (
                   <p className="text-red-600 text-xs mt-1 flex items-center">
@@ -257,34 +274,8 @@ const Signup = () => {
                     {fieldErrors.last_name}
                   </p>
                 )}
+                <p className="text-xs text-gray-500 mt-1">Optional</p>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Username *
-              </label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                required
-                minLength="3"
-                maxLength="20"
-                pattern="[a-zA-Z0-9_]+"
-                className={`input-field ${fieldErrors.username ? 'border-red-500 focus:ring-red-500' : formData.username.length >= 3 ? 'border-green-500' : ''}`}
-                placeholder="johndoe123"
-              />
-              {fieldErrors.username && (
-                <p className="text-red-600 text-xs mt-1 flex items-center">
-                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-                  </svg>
-                  {fieldErrors.username}
-                </p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">3-20 characters, letters, numbers, underscore only</p>
             </div>
 
             <div>
@@ -386,16 +377,15 @@ const Signup = () => {
 
             <div>
               <label className="block text-gray-700 font-medium mb-2">
-                Phone *
+                Phone
               </label>
               <input
                 type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                required
                 className={`input-field ${fieldErrors.phone ? 'border-red-500 focus:ring-red-500' : formData.phone.length >= 10 ? 'border-green-500' : ''}`}
-                placeholder="+91 9876543210"
+                placeholder="+91 9876543210 (optional)"
               />
               {fieldErrors.phone && (
                 <p className="text-red-600 text-xs mt-1 flex items-center">
@@ -405,22 +395,21 @@ const Signup = () => {
                   {fieldErrors.phone}
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">10-15 digits, can include +, -, (), spaces</p>
+              <p className="text-xs text-gray-500 mt-1">Optional - 10-15 digits, can include +, -, (), spaces</p>
             </div>
 
             <div>
               <label className="block text-gray-700 font-medium mb-2">
-                Address *
+                Address
               </label>
               <textarea
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                required
                 minLength="10"
                 className={`input-field ${fieldErrors.address ? 'border-red-500 focus:ring-red-500' : formData.address.length >= 10 ? 'border-green-500' : ''}`}
                 rows="2"
-                placeholder="123 Main Street, City, State, PIN"
+                placeholder="123 Main Street, City, State, PIN (optional)"
               />
               {fieldErrors.address && (
                 <p className="text-red-600 text-xs mt-1 flex items-center">
@@ -430,7 +419,7 @@ const Signup = () => {
                   {fieldErrors.address}
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">Minimum 10 characters</p>
+              <p className="text-xs text-gray-500 mt-1">Optional - Minimum 10 characters if provided</p>
             </div>
 
             <button

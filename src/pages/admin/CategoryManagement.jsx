@@ -13,10 +13,6 @@ const CategoryManagement = () => {
   });
   const { showSuccess, showError } = useNotification();
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
   const fetchCategories = useCallback(async () => {
     setLoading(true);
     try {
@@ -29,6 +25,10 @@ const CategoryManagement = () => {
       setLoading(false);
     }
   }, [showError]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -181,7 +181,7 @@ const CategoryManagement = () => {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Category Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
