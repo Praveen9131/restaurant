@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNotification } from '../../context/NotificationContext';
-import { orderAPI } from '../../services/api';
+import { orderAPI, adminAPI } from '../../services/api';
 
 const OrdersManagement = () => {
-  console.log('OrdersManagement: Component is rendering...');
-  
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,20 +15,14 @@ const OrdersManagement = () => {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      console.log('OrdersManagement: Fetching orders...');
-      const response = await orderAPI.getAll();
-      console.log('OrdersManagement: Orders response:', response.data);
+      const response = await adminAPI.getOrders();
       
-      const ordersData = response.data.orders || [];
-      setOrders(ordersData);
-      setStatusCounts(response.data.status_counts || {});
+      // Use backend data directly without frontend processing
+      const backendData = response.data;
       
-      console.log('OrdersManagement: Successfully fetched orders:', {
-        total: ordersData.length,
-        statusCounts: response.data.status_counts
-      });
+      setOrders(backendData.orders || []);
+      setStatusCounts(backendData.status_counts || {});
     } catch (error) {
-      console.error('OrdersManagement: Error fetching orders:', error);
       showError('Failed to fetch orders: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
@@ -62,16 +54,12 @@ const OrdersManagement = () => {
     setFilteredOrders(filtered);
   }, [orders, statusFilter, searchTerm]);
 
-  const updateOrderStatus = async (orderId, newStatus) => {
+  const updateOrderStatus = useCallback(async (orderId, newStatus) => {
     try {
-      console.log('Updating order status:', { orderId, newStatus });
       const response = await orderAPI.updateStatus(orderId, { status: newStatus });
-      console.log('Status update response:', response);
       showSuccess('Order status updated successfully!');
       fetchOrders();
     } catch (error) {
-      console.error('Order status update error:', error);
-      console.error('Error response:', error.response?.data);
       let errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to update order status';
       
       // Special handling for "out_for_delivery" database limitation
@@ -81,9 +69,9 @@ const OrdersManagement = () => {
       
       showError(errorMsg);
     }
-  };
+  }, [showSuccess, showError, fetchOrders]);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     switch (status.toLowerCase()) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
@@ -98,10 +86,9 @@ const OrdersManagement = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
   if (loading) {
-    console.log('OrdersManagement: Still loading...');
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
@@ -109,13 +96,6 @@ const OrdersManagement = () => {
       </div>
     );
   }
-
-  console.log('OrdersManagement: Rendering with data:', {
-    loading,
-    ordersLength: orders.length,
-    filteredOrdersLength: filteredOrders.length,
-    statusCounts
-  });
 
   return (
     <div className="space-y-6 w-full overflow-x-hidden">
@@ -164,17 +144,6 @@ const OrdersManagement = () => {
         </button>
       </div>
 
-      {/* Debug Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">Debug Information</h3>
-        <div className="text-xs text-blue-700 space-y-1">
-          <div>Total Orders: {orders.length}</div>
-          <div>Filtered Orders: {filteredOrders.length}</div>
-          <div>Status Filter: {statusFilter}</div>
-          <div>Search Term: "{searchTerm}"</div>
-          <div>Status Counts: {JSON.stringify(statusCounts)}</div>
-        </div>
-      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { menuAPI, categoryAPI } from '../../services/api';
 import Loading from '../../components/common/Loading';
 import MenuCard from '../../components/customer/MenuCard';
@@ -65,15 +65,14 @@ const Menu = () => {
           params.vegetarian_only = true;
         }
 
+        // Fetch all items (both available and unavailable) for customers
+        // Don't use available_only filter so customers can see unavailable items
+
         const response = await menuAPI.getAll(params);
         const allItems = response.data.menu_items || [];
         
-        // Apply client-side filtering - Show all items including unavailable ones
-        let filteredItems = allItems; // Show all items, both available and unavailable
-        
-        // Filter out known problematic menu items that cause "menu items not found" error
-        const problematicMenuItems = [2, 47]; // Items that are marked available but cause order creation to fail
-        filteredItems = filteredItems.filter(item => !problematicMenuItems.includes(item.id));
+        // Apply client-side filtering - Show all items
+        let filteredItems = allItems;
         
         if (vegetarianOnly) {
           filteredItems = filteredItems.filter(item => item.is_vegetarian);
@@ -105,19 +104,14 @@ const Menu = () => {
       
       try {
                // Get total count for "All" category with current filters
-               const allParams = {};
+               const allParams = {}; // Don't filter by availability
                if (vegetarianOnly) {
                  allParams.vegetarian_only = true;
                }
                const allResponse = await menuAPI.getAll(allParams);
                let allItems = allResponse.data.menu_items || [];
                
-               // Apply client-side filtering - Count all items including unavailable ones
-               // allItems = allItems.filter(item => item.is_available); // Show all items, both available and unavailable
-               
-               // Filter out known problematic menu items
-               const problematicMenuItems = [2, 47];
-               allItems = allItems.filter(item => !problematicMenuItems.includes(item.id));
+               // Show all menu items
                
                if (vegetarianOnly) {
                  allItems = allItems.filter(item => item.is_vegetarian);
@@ -131,19 +125,14 @@ const Menu = () => {
         for (const category of categories) {
           if (category.id !== 'all') {
             try {
-              const params = { category_id: category.id };
+              const params = { category_id: category.id }; // Don't filter by availability
               if (vegetarianOnly) {
                 params.vegetarian_only = true;
               }
                      const response = await menuAPI.getAll(params);
                      let categoryItems = response.data.menu_items || [];
                      
-                     // Apply client-side filtering - Count all items including unavailable ones
-                     // categoryItems = categoryItems.filter(item => item.is_available); // Show all items, both available and unavailable
-                     
-                     // Filter out known problematic menu items
-                     const problematicMenuItems = [2, 47];
-                     categoryItems = categoryItems.filter(item => !problematicMenuItems.includes(item.id));
+                     // Show all menu items
                      
                      if (vegetarianOnly) {
                        categoryItems = categoryItems.filter(item => item.is_vegetarian);
@@ -453,9 +442,9 @@ const Menu = () => {
                 />
                 <span className="text-sm">🍖 Non-Veg Only</span>
               </label>
-              <div className="inline-flex items-center bg-gray-100 px-4 py-2 rounded-lg border border-gray-200">
-                <span className="mr-2 text-green-600">✓</span>
-                <span className="text-sm text-gray-600">Available Only</span>
+              <div className="inline-flex items-center bg-blue-100 px-4 py-2 rounded-lg border border-blue-200">
+                <span className="mr-2 text-blue-600">ℹ️</span>
+                <span className="text-sm text-blue-700">All Items (including unavailable)</span>
               </div>
             </div>
           </div>

@@ -4,35 +4,43 @@ import { inquiryAPI, adminAPI } from '../../services/api';
 
 const InquiriesManagement = () => {
   const [inquiries, setInquiries] = useState([]);
+  const [filteredInquiries, setFilteredInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInquiry, setSelectedInquiry] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
   const { showSuccess, showError } = useNotification();
-
-  useEffect(() => {
-    fetchInquiries();
-  }, [fetchInquiries]);
 
   const fetchInquiries = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminAPI.getInquiries();
+      
       // API returns array directly, not wrapped in object
-      setInquiries(response.data || []);
+      const allInquiries = response.data || [];
+      setInquiries(allInquiries);
+      setFilteredInquiries(allInquiries);
     } catch (error) {
       console.error('Error fetching inquiries:', error);
-      console.error('Error response:', error.response);
-      
-      // Check if it's a 404 error (endpoint not available)
-      if (error.response?.status === 404) {
-        showError('Note: Inquiry list endpoint is not available. Inquiries are being received and stored, but the backend team needs to add a GET /inquirylist/ endpoint to view them.');
-        setInquiries([]);
-      } else {
-        showError('Failed to fetch inquiries: ' + (error.response?.data?.message || error.message));
-      }
+      showError('Failed to fetch inquiries: ' + (error.response?.data?.message || error.message));
+      setInquiries([]);
+      setFilteredInquiries([]);
     } finally {
       setLoading(false);
     }
   }, [showError]);
+
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
+
+  // Filter inquiries based on status
+  useEffect(() => {
+    if (statusFilter === 'all') {
+      setFilteredInquiries(inquiries);
+    } else {
+      setFilteredInquiries(inquiries.filter(inquiry => inquiry.status === statusFilter));
+    }
+  }, [inquiries, statusFilter]);
 
   const updateInquiryStatus = async (inquiryId, newStatus) => {
     try {
@@ -43,29 +51,43 @@ const InquiriesManagement = () => {
         setSelectedInquiry(null);
       }
     } catch (error) {
+      console.error('Error updating inquiry status:', error);
       showError(error.response?.data?.message || 'Failed to update inquiry status');
     }
   };
 
-  const deleteInquiry = async (inquiryId) => {
-    if (window.confirm('Are you sure you want to delete this inquiry?')) {
-      try {
-        await inquiryAPI.delete(inquiryId);
-        showSuccess('Inquiry deleted successfully!');
-        fetchInquiries();
-      } catch (error) {
-        showError(error.response?.data?.message || 'Failed to delete inquiry');
-      }
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'new':
+        return 'bg-blue-100 text-blue-800';
+      case 'in_progress':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'resolved':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const getStatusOptions = (currentStatus) => {
+    const allOptions = [
+      { value: 'new', label: 'New' },
+      { value: 'in_progress', label: 'In Progress' },
+      { value: 'resolved', label: 'Resolved' }
+    ];
+    return allOptions.filter(option => option.value !== currentStatus);
+  };
+
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FC8019]"></div>
+        <p className="ml-4">Loading inquiries...</p>
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
@@ -86,9 +108,59 @@ const InquiriesManagement = () => {
         </button>
       </div>
 
+
+      {/* Status Filter */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center space-x-4">
+          <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === 'all' 
+                  ? 'bg-[#FC8019] text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All ({inquiries.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('new')}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === 'new' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              New ({inquiries.filter(i => i.status === 'new').length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('in_progress')}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === 'in_progress' 
+                  ? 'bg-yellow-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              In Progress ({inquiries.filter(i => i.status === 'in_progress').length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('resolved')}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === 'resolved' 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Resolved ({inquiries.filter(i => i.status === 'resolved').length})
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Inquiries List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {inquiries.map((inquiry) => (
+        {filteredInquiries.map((inquiry) => (
           <div key={inquiry.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
@@ -103,13 +175,7 @@ const InquiriesManagement = () => {
                     <p className="text-sm text-[#9C9C9C] leading-relaxed">{inquiry.email}</p>
                   </div>
                   {/* Status Badge */}
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    inquiry.status === 'resolved' 
-                      ? 'bg-green-100 text-green-700' 
-                      : inquiry.status === 'in_progress'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(inquiry.status)}`}>
                     {inquiry.status === 'in_progress' ? 'In Progress' : inquiry.status === 'resolved' ? 'Resolved' : 'New'}
                   </span>
                 </div>
@@ -121,73 +187,43 @@ const InquiriesManagement = () => {
               </div>
             </div>
 
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedInquiry(inquiry)}
                 className="flex-1 bg-[#FC8019] hover:bg-orange-600 text-white font-medium py-2.5 px-3 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               >
                 View Details
               </button>
-              {inquiry.status !== 'in_progress' && (
+              {getStatusOptions(inquiry.status).map((option) => (
                 <button
-                  onClick={() => updateInquiryStatus(inquiry.id, 'in_progress')}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 px-3 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
-                  title="Mark as In Progress"
+                  key={option.value}
+                  onClick={() => updateInquiryStatus(inquiry.id, option.value)}
+                  className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
+                    option.value === 'new' 
+                      ? 'bg-gray-500 hover:bg-gray-600 text-white' 
+                      : option.value === 'in_progress'
+                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                      : 'bg-green-500 hover:bg-green-600 text-white'
+                  }`}
+                  title={`Mark as ${option.label}`}
                 >
-                  In Progress
+                  {option.label}
                 </button>
-              )}
-              {inquiry.status !== 'resolved' && (
-                <button
-                  onClick={() => updateInquiryStatus(inquiry.id, 'resolved')}
-                  className="bg-green-500 hover:bg-green-600 text-white font-medium py-2.5 px-3 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
-                  title="Mark as Resolved"
-                >
-                  Resolve
-                </button>
-              )}
-              <button
-                onClick={() => deleteInquiry(inquiry.id)}
-                className="bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 px-3 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
-              >
-                Delete
-              </button>
+              ))}
             </div>
           </div>
         ))}
       </div>
 
-      {inquiries.length === 0 && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">Inquiry List Endpoint Not Available</h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p className="mb-2">
-                  <strong>Status:</strong> Inquiries are being <strong>received and stored</strong> via the contact form (/inquirycreate/ endpoint is working).
-                </p>
-                <p className="mb-2">
-                  <strong>Issue:</strong> The backend does not have a GET endpoint to retrieve inquiries.
-                </p>
-                <p className="mb-2">
-                  <strong>Solution Required:</strong> Backend team needs to implement:
-                </p>
-                <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li><code className="bg-yellow-100 px-1 rounded">GET /inquiries/</code> - To fetch all inquiries</li>
-                  <li><code className="bg-yellow-100 px-1 rounded">GET /inquiry/{'{id}'}/</code> - To fetch specific inquiry</li>
-                  <li><code className="bg-yellow-100 px-1 rounded">POST /inquiry/reply/</code> - To reply to inquiries</li>
-                </ul>
-                <p className="mt-3">
-                  <strong>Temporary Workaround:</strong> Check the database directly or implement email notifications for new inquiries.
-                </p>
-              </div>
-            </div>
+      {filteredInquiries.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
           </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Inquiries Found</h3>
+          <p className="text-gray-500">There are no customer inquiries at the moment.</p>
         </div>
       )}
 
@@ -301,12 +337,6 @@ const InquiriesManagement = () => {
                     Call Customer
                   </a>
                 )}
-                <button
-                  onClick={() => deleteInquiry(selectedInquiry.id)}
-                  className="bg-red-500 hover:bg-red-600 text-white font-swiggy font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
-                >
-                  Delete
-                </button>
               </div>
             </div>
           </div>

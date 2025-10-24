@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNotification } from '../../context/NotificationContext';
 import { menuAPI, categoryAPI, fileAPI } from '../../services/api';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
@@ -6,12 +7,14 @@ import ErrorBoundary from '../../components/common/ErrorBoundary';
 const MenuManagement = () => {
   console.log('MenuManagement: Component is rendering...');
   
+  const [searchParams] = useSearchParams();
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'available', or 'unavailable'
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'available', 'unavailable'
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -76,6 +79,14 @@ const MenuManagement = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Handle URL parameter for tab switching
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['all', 'available', 'unavailable'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -356,15 +367,32 @@ const MenuManagement = () => {
   // Helper functions to get filtered items
   const getAvailableItems = () => menuItems.filter(item => item.is_available);
   const getUnavailableItems = () => menuItems.filter(item => !item.is_available);
-  const getCurrentTabItems = () => {
+  
+  // Search function
+  const getFilteredItems = () => {
+    let items = [];
     switch (activeTab) {
       case 'available':
-        return getAvailableItems();
+        items = getAvailableItems();
+        break;
       case 'unavailable':
-        return getUnavailableItems();
+        items = getUnavailableItems();
+        break;
       default:
-        return menuItems;
+        items = menuItems;
     }
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      items = items.filter(item => 
+        item.name.toLowerCase().includes(term) ||
+        item.description.toLowerCase().includes(term) ||
+        (item.category && item.category.name && item.category.name.toLowerCase().includes(term))
+      );
+    }
+    
+    return items;
   };
 
   if (loading) {
@@ -418,6 +446,34 @@ const MenuManagement = () => {
         </button>
       </div>
 
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search menu items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            >
+              <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="mb-8">
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
@@ -464,33 +520,22 @@ const MenuManagement = () => {
       </div>
 
 
-      {/* Debug Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">Debug Information</h3>
-        <div className="text-xs text-blue-700 space-y-1">
-          <div>Total Menu Items: {menuItems.length}</div>
-          <div>Available Items: {getAvailableItems().length}</div>
-          <div>Unavailable Items: {getUnavailableItems().length}</div>
-          <div>Current Tab: {activeTab}</div>
-          <div>Current Tab Items: {getCurrentTabItems().length}</div>
-          <div>Categories: {categories.length}</div>
-        </div>
-      </div>
 
       {/* Menu Items Grid */}
       <div className="mb-8">
-        {getCurrentTabItems().length === 0 ? (
+        {getFilteredItems().length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 text-lg mb-2">No menu items found</div>
             <div className="text-gray-400 text-sm">
-              {activeTab === 'available' ? 'No available items' : 
+              {searchTerm ? 'No items match your search' :
+               activeTab === 'available' ? 'No available items' : 
                activeTab === 'unavailable' ? 'No unavailable items' : 
                'No items in database'}
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {getCurrentTabItems().map((item) => (
+            {getFilteredItems().map((item) => (
           <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-200 ${
             !item.is_available 
               ? 'border-red-300 bg-red-50 relative' 
@@ -877,7 +922,7 @@ const MenuManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -903,6 +948,7 @@ const MenuManagement = () => {
                     Available
                   </label>
                 </div>
+
               </div>
 
               <div className="flex space-x-3 pt-4">

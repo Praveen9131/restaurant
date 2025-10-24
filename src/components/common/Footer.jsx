@@ -7,7 +7,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="text-xl font-bold mb-4 text-primary">SeaSide Live Bake Studio</h3>
+            <h3 className="text-xl font-bold mb-4 text-white hover:text-orange-500 transition-colors duration-300 cursor-pointer">
+              <span>Sea</span><span>Side</span> Live Bake Studio
+            </h3>
             <p className="text-gray-300">
               Fresh • Live • Delicious. Your favorite restaurant delivering delicious meals right to your doorstep.
               Fresh ingredients, authentic flavors, and exceptional service.
@@ -16,7 +18,7 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-xl font-bold mb-4">Quick Links</h3>
+            <h3 className="text-xl font-bold mb-4 text-white hover:text-orange-500 transition-colors duration-300 cursor-pointer">Quick Links</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="text-gray-300 hover:text-primary transition">
@@ -53,7 +55,7 @@ const Footer = () => {
 
           {/* Contact Info */}
           <div>
-            <h3 className="text-xl font-bold mb-4">Contact Us</h3>
+            <h3 className="text-xl font-bold mb-4 text-white hover:text-orange-500 transition-colors duration-300 cursor-pointer">Contact Us</h3>
             <ul className="space-y-2 text-gray-300">
               <li>📞 +91 9994592607</li>
               <li>✉️ admin@seasidelbs.com</li>
@@ -70,7 +72,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
-          <p>&copy; {new Date().getFullYear()} SeaSide Live Bake Studio. All rights reserved.</p>
+          <p className="text-white hover:text-orange-500 transition-colors duration-300 cursor-pointer">&copy; {new Date().getFullYear()} <span className="font-bold">Sea</span><span className="font-bold">Side</span> Live Bake Studio. All rights reserved.</p>
         </div>
       </div>
     </footer>

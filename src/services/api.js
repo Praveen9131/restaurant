@@ -238,19 +238,67 @@ export const adminAPI = {
     console.log('AdminAPI: Admin login request to /Owner-Login/ with data:', data);
     return api.post('/Owner-Login/', data);
   },
-  getDashboard: () => api.get('/Dashboard/'),
-  getOrders: (params) => api.get('/AdminOrdersView/', { params }),
-  updateOrderStatus: (data) => api.post('/UpdateOrderStatus/', data),
-  // Customer management endpoints
-  getCustomers: () => api.get('/AdminOrdersView/'), // Using orders to extract customer data
-  getCustomerOrders: (customerId) => api.get(`/customer_orders/?customer_id=${customerId}`),
-  // Inquiry management endpoints
-  getInquiries: () => {
-    console.log('AdminAPI: Getting all inquiries');
-    return api.get('/inquirylist/');
+  getDashboard: async () => {
+    console.log('🔍 [API] Calling getDashboard');
+    
+    const response = await api.get('/Dashboard/');
+    console.log('✅ [API] getDashboard success:', response.status);
+    return response;
   },
+
+  getOrdersByCustomer: async () => {
+    console.log('🔍 [API] Calling getOrdersByCustomer');
+    
+    const response = await api.get('/OrdersByCustomerView/');
+    console.log('✅ [API] getOrdersByCustomer success:', response.status);
+    return response;
+  },
+  getOrders: async (params) => {
+    console.log('🔍 [API] Calling getOrders with params:', params);
+    
+    try {
+      // Try primary endpoint first
+      const response = await api.get('/AdminOrdersView/', { params });
+      console.log('✅ [API] getOrders success:', response.status);
+      return response;
+    } catch (error) {
+      console.warn('⚠️ [API] getOrders failed, trying Dashboard API:', error.message);
+      
+      // Try fallback to Dashboard API
+      const dashboardResponse = await api.get('/Dashboard/');
+      console.log('✅ [API] getOrders fallback success:', dashboardResponse.status);
+      return dashboardResponse;
+    }
+  },
+  updateOrderStatus: (data) => {
+    return api.post('/UpdateOrderStatus/', data);
+  },
+  // Customer management endpoints (uses same endpoint as orders since customers are extracted from orders)
+  getCustomers: async () => {
+    console.log('🔍 [API] Calling getCustomers');
+    
+    try {
+      // Try primary endpoint first
+      const response = await api.get('/AdminOrdersView/');
+      console.log('✅ [API] getCustomers success:', response.status);
+      return response;
+    } catch (error) {
+      console.warn('⚠️ [API] getCustomers failed, trying Dashboard API:', error.message);
+      
+      // Try fallback to Dashboard API
+      const dashboardResponse = await api.get('/Dashboard/');
+      console.log('✅ [API] getCustomers fallback success:', dashboardResponse.status);
+      return dashboardResponse;
+    }
+  },
+  getCustomerOrders: (customerId) => {
+    return api.get(`/customer_orders/?customer_id=${customerId}`);
+  },
+  // Inquiry management endpoints
+    getInquiries: () => {
+      return api.get('/inquirylist/');
+    },
   updateInquiryStatus: (data) => {
-    console.log('AdminAPI: Updating inquiry status with data:', data);
     return api.post('/inquiryupdate/', data);
   },
 };
@@ -293,17 +341,35 @@ export const menuAPI = {
 };
 
 // Order APIs
+// export const orderAPI = {
+//   create: (data) => api.post('/order/create/', data),
+//   getAll: () => api.get('/AdminOrdersView/'),
+//   getDetails: (orderId) => api.get(`/order/${orderId}/`),
+//   getCustomerOrders: (customerId) => api.get('/customer_orders/', { params: { customer_id: customerId } }),
+//   updateStatus: (orderId, data) => {
+//     const payload = { order_id: orderId, status: data.status };
+//     console.log('OrderAPI.updateStatus - Payload:', payload);
+//     return api.post('/UpdateOrderStatus/', payload);
+//   },
+// };
+
 export const orderAPI = {
   create: (data) => api.post('/order/create/', data),
+  adminCreate: (data) => {
+    return api.post('/adminordercreate/', data);
+  },
   getAll: () => api.get('/AdminOrdersView/'),
   getDetails: (orderId) => api.get(`/order/${orderId}/`),
   getCustomerOrders: (customerId) => api.get('/customer_orders/', { params: { customer_id: customerId } }),
   updateStatus: (orderId, data) => {
     const payload = { order_id: orderId, status: data.status };
-    console.log('OrderAPI.updateStatus - Payload:', payload);
     return api.post('/UpdateOrderStatus/', payload);
   },
 };
+
+
+
+
 
 // Customer APIs
 export const customerAPI = {

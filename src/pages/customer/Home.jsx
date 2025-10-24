@@ -21,7 +21,7 @@ const Home = () => {
   useEffect(() => {
     const fetchFeaturedItems = async () => {
       try {
-        const response = await menuAPI.getAll({ available_only: true });
+        const response = await menuAPI.getAll(); // Show all items including unavailable
         // Get first 6 items as featured
         setFeaturedItems(response.data.menu_items?.slice(0, 6) || []);
       } catch (error) {

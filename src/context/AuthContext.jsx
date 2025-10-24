@@ -17,10 +17,45 @@ export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Helper function to safely access localStorage
+  const safeLocalStorage = {
+    getItem: (key) => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return localStorage.getItem(key);
+        }
+      } catch (error) {
+        console.error('Error accessing localStorage:', error);
+      }
+      return null;
+    },
+    setItem: (key, value) => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          safeLocalStorage.setItem(key, value);
+        }
+      } catch (error) {
+        console.error('Error setting localStorage:', error);
+      }
+    },
+    removeItem: (key) => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          safeLocalStorage.removeItem(key);
+        }
+      } catch (error) {
+        console.error('Error removing from localStorage:', error);
+      }
+    }
+  };
+
   useEffect(() => {
     // Check if user is logged in from localStorage
-    const storedUser = localStorage.getItem('user');
-    const _storedIsAdmin = localStorage.getItem('isAdmin');
+    let storedUser = null;
+    let _storedIsAdmin = null;
+    
+    storedUser = safeLocalStorage.getItem('user');
+    _storedIsAdmin = safeLocalStorage.getItem('isAdmin');
     
     if (storedUser) {
       try {
@@ -39,8 +74,8 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Error parsing stored user data:', error);
         // Clear corrupted data
-        localStorage.removeItem('user');
-        localStorage.removeItem('isAdmin');
+        safeLocalStorage.removeItem('user');
+        safeLocalStorage.removeItem('isAdmin');
         setUser(null);
         setIsAdmin(false);
       }
@@ -73,8 +108,8 @@ export const AuthProvider = ({ children }) => {
         console.log('User logged in successfully:', userData);
         setUser(userData);
         setIsAdmin(false);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('isAdmin', 'false');
+        safeLocalStorage.setItem('user', JSON.stringify(userData));
+        safeLocalStorage.setItem('isAdmin', 'false');
         return { success: true, data: userData };
       }
       
@@ -130,8 +165,8 @@ export const AuthProvider = ({ children }) => {
         console.log('User logged in successfully (201):', userData);
         setUser(userData);
         setIsAdmin(false);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('isAdmin', 'false');
+        safeLocalStorage.setItem('user', JSON.stringify(userData));
+        safeLocalStorage.setItem('isAdmin', 'false');
         return { success: true, data: userData };
       } else if (error.response?.status === 200) {
         // Status code 200 - Login successful
@@ -155,8 +190,8 @@ export const AuthProvider = ({ children }) => {
         console.log('User logged in successfully (200):', userData);
         setUser(userData);
         setIsAdmin(false);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('isAdmin', 'false');
+        safeLocalStorage.setItem('user', JSON.stringify(userData));
+        safeLocalStorage.setItem('isAdmin', 'false');
         return { success: true, data: userData };
       }
       
@@ -242,8 +277,8 @@ export const AuthProvider = ({ children }) => {
         console.log('Admin logged in successfully:', userData);
         setUser(userData);
         setIsAdmin(true);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('isAdmin', 'true');
+        safeLocalStorage.setItem('user', JSON.stringify(userData));
+        safeLocalStorage.setItem('isAdmin', 'true');
         return { success: true, data: userData };
       }
       
@@ -445,16 +480,16 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setIsAdmin(false);
-      localStorage.removeItem('user');
-      localStorage.removeItem('isAdmin');
+      safeLocalStorage.removeItem('user');
+      safeLocalStorage.removeItem('isAdmin');
     }
   };
 
   const clearAuthState = () => {
     setUser(null);
     setIsAdmin(false);
-    localStorage.removeItem('user');
-    localStorage.removeItem('isAdmin');
+    safeLocalStorage.removeItem('user');
+    safeLocalStorage.removeItem('isAdmin');
   };
 
   const value = {

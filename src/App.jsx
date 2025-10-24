@@ -36,8 +36,11 @@ import OrdersManagement from './pages/admin/OrdersManagement';
 import MenuManagement from './pages/admin/MenuManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import CustomerManagement from './pages/admin/CustomerManagement';
+import CustomerDetailsPage from './pages/admin/CustomerDetailsPage';
 import InquiriesManagement from './pages/admin/InquiriesManagement';
+import InhouseManagement from './pages/admin/InhouseManagement';
 import APIDebug from './pages/admin/APIDebug';
+import AllOrdersManagement from './pages/admin/AllOrdersManagement';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -176,7 +179,10 @@ function App() {
               <Route path="menu" element={<MenuManagement />} />
               <Route path="orders" element={<OrdersManagement />} />
               <Route path="customers" element={<CustomerManagement />} />
+              <Route path="customers/:customerId" element={<CustomerDetailsPage />} />
               <Route path="inquiries" element={<InquiriesManagement />} />
+              <Route path="inhouse" element={<InhouseManagement />} />
+              <Route path="all-orders" element={<AllOrdersManagement />} />
             </Route>
 
             {/* Catch all - redirect to home */}

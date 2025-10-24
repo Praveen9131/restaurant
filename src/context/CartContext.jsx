@@ -16,18 +16,37 @@ export const CartProvider = ({ children }) => {
 
   // Load cart from localStorage on mount
   useEffect(() => {
-    const storedCart = localStorage.getItem('cart');
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const storedCart = localStorage.getItem('cart');
+        if (storedCart) {
+          setCart(JSON.parse(storedCart));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+      setCart([]);
     }
   }, []);
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('cart', JSON.stringify(cart));
+      }
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
   }, [cart]);
 
   const addToCart = (item, quantity = 1, selectedVariation = null, specialInstructions = '') => {
+    // Prevent adding unavailable items to cart
+    if (!item.is_available) {
+      console.warn('Cannot add unavailable item to cart:', item.name);
+      return;
+    }
+    
     setCart((prevCart) => {
       const existingItemIndex = prevCart.findIndex(
         (cartItem) =>
@@ -91,7 +110,13 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => {
     setCart([]);
-    localStorage.removeItem('cart');
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('cart');
+      }
+    } catch (error) {
+      console.error('Error clearing cart from localStorage:', error);
+    }
   };
 
   const getCartTotal = () => {
