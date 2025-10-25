@@ -17,6 +17,10 @@ const Menu = () => {
   // const [availableOnly, setAvailableOnly] = useState(false); // Always show all items including unavailable
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
+  
+  // Simplified Filter States - Only two toggles
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
   // Fetch categories only once on mount
   useEffect(() => {
@@ -81,7 +85,9 @@ const Menu = () => {
         }
         
         setAllMenuItems(filteredItems);
-        setMenuItems(filteredItems);
+        // Apply basic filters to the fetched items
+        const finalFiltered = applyBasicFilters(filteredItems);
+        setMenuItems(finalFiltered);
       } catch (error) {
         console.error('Error fetching menu items:', error);
         setError('Failed to load menu items. Please refresh the page.');
@@ -94,6 +100,20 @@ const Menu = () => {
     
     loadMenuItems();
   }, [selectedCategory, vegetarianOnly, nonVegOnly, showAllItems, categories]);
+
+  // Apply filters when filter states change
+  useEffect(() => {
+    if (allMenuItems.length > 0) {
+      const filtered = applyBasicFilters(allMenuItems);
+      setMenuItems(filtered);
+    }
+  }, [searchQuery]);
+
+  // Update active filters count
+  useEffect(() => {
+    const count = countActiveFilters();
+    setActiveFiltersCount(count);
+  }, [searchQuery, vegetarianOnly, nonVegOnly, selectedCategory]);
 
   // Fetch category counts when categories or filters change
   useEffect(() => {
@@ -157,7 +177,7 @@ const Menu = () => {
     loadCategoryCounts();
   }, [categories, vegetarianOnly, nonVegOnly]);
 
-  // Filter menu items based on search query
+  // Simplified filtering functions - Only search and basic filters
   const filterBySearch = (items, query) => {
     if (!query.trim()) return items;
     
@@ -169,22 +189,46 @@ const Menu = () => {
     );
   };
 
+  // Apply basic filters
+  const applyBasicFilters = (items) => {
+    let filtered = items;
+    
+    // Apply search filter
+    filtered = filterBySearch(filtered, searchQuery);
+    
+    return filtered;
+  };
+
+  // Count active filters
+  const countActiveFilters = () => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (vegetarianOnly || nonVegOnly) count++;
+    if (selectedCategory !== 'all') count++;
+    return count;
+  };
+
   // Handle search input
   const handleSearch = (value) => {
     setSearchQuery(value);
-    if (!value.trim()) {
-      // If search is cleared, show items based on current category
-      setMenuItems(allMenuItems);
-    } else {
-      // Filter items based on search query
-      const filtered = filterBySearch(allMenuItems, value);
-      setMenuItems(filtered);
-    }
+    const filtered = applyBasicFilters(allMenuItems);
+    setMenuItems(filtered);
   };
 
   // Clear search
   const clearSearch = () => {
     setSearchQuery('');
+    const filtered = applyBasicFilters(allMenuItems);
+    setMenuItems(filtered);
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setVegetarianOnly(false);
+    setNonVegOnly(false);
+    setShowAllItems(true);
     setMenuItems(allMenuItems);
   };
 
@@ -279,7 +323,7 @@ const Menu = () => {
             </div>
           )}
 
-          {/* Search Bar and Filters - Desktop */}
+          {/* Simplified Search Bar and Two Toggle Filters */}
           <div className="mb-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               {/* Search Bar */}
@@ -313,139 +357,206 @@ const Menu = () => {
                 </div>
               </div>
 
-              {/* Desktop Filters - Right side of search bar */}
-              <div className="hidden lg:flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-700">Filters:</span>
+              {/* Two Toggle Buttons */}
+              <div className="flex items-center space-x-4">
+                {/* Vegetarian Toggle */}
                 <div className="flex items-center space-x-3">
                   <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="dietFilter"
-                      checked={showAllItems && !vegetarianOnly && !nonVegOnly}
-                      onChange={() => {
-                        setShowAllItems(true);
-                        setVegetarianOnly(false);
-                        setNonVegOnly(false);
-                      }}
-                      className="mr-2 text-orange-500 focus:ring-orange-500"
-                    />
-                    <span className="text-sm">🍽️ All Items</span>
-                  </label>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="dietFilter"
-                      checked={vegetarianOnly}
-                      onChange={() => {
-                        setVegetarianOnly(true);
-                        setNonVegOnly(false);
-                        setShowAllItems(false);
-                      }}
-                      className="mr-2 text-orange-500 focus:ring-orange-500"
-                    />
-                    <span className="text-sm">🌱 Vegetarian</span>
-                  </label>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="dietFilter"
-                      checked={nonVegOnly}
-                      onChange={() => {
-                        setNonVegOnly(true);
-                        setVegetarianOnly(false);
-                        setShowAllItems(false);
-                      }}
-                      className="mr-2 text-orange-500 focus:ring-orange-500"
-                    />
-                    <span className="text-sm">🍖 Non-Vegetarian</span>
+                    <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      vegetarianOnly ? 'bg-green-500' : 'bg-gray-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={vegetarianOnly}
+                        onChange={() => {
+                          setVegetarianOnly(!vegetarianOnly);
+                          if (vegetarianOnly) {
+                            setNonVegOnly(false);
+                            setShowAllItems(true);
+                          } else {
+                            setNonVegOnly(false);
+                            setShowAllItems(false);
+                          }
+                        }}
+                        className="sr-only"
+                      />
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        vegetarianOnly ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </div>
+                    <div className="ml-3 flex items-center">
+                      <span className="text-lg">🌱</span>
+                      <span className="ml-2 text-sm font-medium text-gray-700">Vegetarian</span>
+                    </div>
                   </label>
                 </div>
-              </div>
-            </div>
-            
-            {/* Search Results Count */}
-            {searchQuery && (
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <p className="text-gray-600">
-                  Found <span className="font-semibold text-orange-600">{menuItems.length}</span> item{menuItems.length !== 1 ? 's' : ''} for "{searchQuery}"
-                </p>
-                {menuItems.length === 0 && (
+
+                {/* Non-Vegetarian Toggle */}
+                <div className="flex items-center space-x-3">
+                  <label className="flex items-center cursor-pointer">
+                    <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      nonVegOnly ? 'bg-red-500' : 'bg-gray-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={nonVegOnly}
+                        onChange={() => {
+                          setNonVegOnly(!nonVegOnly);
+                          if (nonVegOnly) {
+                            setVegetarianOnly(false);
+                            setShowAllItems(true);
+                          } else {
+                            setVegetarianOnly(false);
+                            setShowAllItems(false);
+                          }
+                        }}
+                        className="sr-only"
+                      />
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        nonVegOnly ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </div>
+                    <div className="ml-3 flex items-center">
+                      <span className="text-lg">🍖</span>
+                      <span className="ml-2 text-sm font-medium text-gray-700">Non-Veg</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Clear All Filters */}
+                {activeFiltersCount > 0 && (
                   <button
-                    onClick={clearSearch}
-                    className="text-orange-600 hover:text-orange-700 font-medium"
+                    onClick={clearAllFilters}
+                    className="flex items-center space-x-1 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    Clear search
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Clear All</span>
                   </button>
                 )}
               </div>
-            )}
+            </div>
+            
+            {/* Results Count and Filter Summary */}
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-4">
+                <p className="text-gray-600">
+                  Showing <span className="font-semibold text-orange-600">{menuItems.length}</span> item{menuItems.length !== 1 ? 's' : ''}
+                  {searchQuery && ` for "${searchQuery}"`}
+                </p>
+                {activeFiltersCount > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500">•</span>
+                    <span className="text-gray-600">
+                      {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} active
+                    </span>
+                  </div>
+                )}
+              </div>
+              {(searchQuery || activeFiltersCount > 0) && menuItems.length === 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-orange-600 hover:text-orange-700 font-medium"
+                >
+                  Clear all filters
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Mobile Category Filter */}
+          {/* Mobile Filters - Simplified with Two Toggles */}
           <div className="md:hidden mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name} ({getCategoryItemCount(category.id)})
-                </option>
-              ))}
-            </select>
+            {/* Mobile Category Filter */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({getCategoryItemCount(category.id)})
+                  </option>
+                ))}
+              </select>
+            </div>
             
-            {/* Mobile Filters */}
-            <div className="mt-4 flex flex-wrap gap-3">
-              <label className="inline-flex items-center cursor-pointer bg-white px-4 py-2 rounded-lg border border-gray-200">
-                <input
-                  type="radio"
-                  name="mobileDietFilter"
-                  checked={showAllItems && !vegetarianOnly && !nonVegOnly}
-                  onChange={() => {
-                    setShowAllItems(true);
-                    setVegetarianOnly(false);
-                    setNonVegOnly(false);
-                  }}
-                  className="mr-2 text-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm">🍽️ All</span>
-              </label>
-              <label className="inline-flex items-center cursor-pointer bg-white px-4 py-2 rounded-lg border border-gray-200">
-                <input
-                  type="radio"
-                  name="mobileDietFilter"
-                  checked={vegetarianOnly}
-                  onChange={() => {
-                    setVegetarianOnly(true);
-                    setNonVegOnly(false);
-                    setShowAllItems(false);
-                  }}
-                  className="mr-2 text-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm">🌱 Veg Only</span>
-              </label>
-              <label className="inline-flex items-center cursor-pointer bg-white px-4 py-2 rounded-lg border border-gray-200">
-                <input
-                  type="radio"
-                  name="mobileDietFilter"
-                  checked={nonVegOnly}
-                  onChange={() => {
-                    setNonVegOnly(true);
-                    setVegetarianOnly(false);
-                    setShowAllItems(false);
-                  }}
-                  className="mr-2 text-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm">🍖 Non-Veg Only</span>
-              </label>
-              <div className="inline-flex items-center bg-blue-100 px-4 py-2 rounded-lg border border-blue-200">
-                <span className="mr-2 text-blue-600">ℹ️</span>
-                <span className="text-sm text-blue-700">All Items (including unavailable)</span>
+            {/* Mobile Two Toggle Buttons */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-4">
+                {/* Vegetarian Toggle */}
+                <label className="flex items-center cursor-pointer">
+                  <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    vegetarianOnly ? 'bg-green-500' : 'bg-gray-200'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={vegetarianOnly}
+                      onChange={() => {
+                        setVegetarianOnly(!vegetarianOnly);
+                        if (vegetarianOnly) {
+                          setNonVegOnly(false);
+                          setShowAllItems(true);
+                        } else {
+                          setNonVegOnly(false);
+                          setShowAllItems(false);
+                        }
+                      }}
+                      className="sr-only"
+                    />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      vegetarianOnly ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </div>
+                  <div className="ml-3 flex items-center">
+                    <span className="text-lg">🌱</span>
+                    <span className="ml-2 text-sm font-medium text-gray-700">Veg</span>
+                  </div>
+                </label>
+
+                {/* Non-Vegetarian Toggle */}
+                <label className="flex items-center cursor-pointer">
+                  <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    nonVegOnly ? 'bg-red-500' : 'bg-gray-200'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={nonVegOnly}
+                      onChange={() => {
+                        setNonVegOnly(!nonVegOnly);
+                        if (nonVegOnly) {
+                          setVegetarianOnly(false);
+                          setShowAllItems(true);
+                        } else {
+                          setVegetarianOnly(false);
+                          setShowAllItems(false);
+                        }
+                      }}
+                      className="sr-only"
+                    />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      nonVegOnly ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </div>
+                  <div className="ml-3 flex items-center">
+                    <span className="text-lg">🍖</span>
+                    <span className="ml-2 text-sm font-medium text-gray-700">Non-Veg</span>
+                  </div>
+                </label>
               </div>
+              
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-sm text-red-600 hover:text-red-700"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
           </div>
           

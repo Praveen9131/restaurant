@@ -301,6 +301,11 @@ export const adminAPI = {
   updateInquiryStatus: (data) => {
     return api.post('/inquiryupdate/', data);
   },
+  // In-house order creation
+  createInHouseOrder: (data) => {
+    console.log('AdminAPI: Creating in-house order with data:', data);
+    return api.post('/adminordercreate/', data);
+  },
 };
 
 // Category APIs

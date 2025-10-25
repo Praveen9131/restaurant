@@ -16,7 +16,8 @@ const InhouseManagement = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const menuResponse = await menuAPI.getAll();
+      // Use available_only=true to get only available items
+      const menuResponse = await menuAPI.getAll({ available_only: true });
       const categoriesResponse = await categoryAPI.getAll();
       
       const allMenuItems = menuResponse.data.menu_items || [];
@@ -33,13 +34,6 @@ const InhouseManagement = () => {
       
       setMenuItems(sortedItems);
       setCategories(categoriesResponse.data.categories || []);
-      
-        // Data fetched successfully (no logging to prevent refreshes)
-      
-          // Check for item with ID 21 (no logging to prevent refreshes)
-          const itemWithId21 = allMenuItems.find(item => 
-            item.id === 21 || item.menu_item_id === 21 || item.menu_id === 21
-          );
       
       // Validate menu items have valid IDs
       const invalidItems = allMenuItems.filter(item => {
@@ -58,11 +52,11 @@ const InhouseManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, []); // Remove showError dependency to prevent re-renders
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []); // Only run once on mount
 
 
   // Size selection function - optimized to prevent unnecessary re-renders
@@ -140,7 +134,7 @@ const InhouseManagement = () => {
     setSelectedItems([]);
     setShowBill(false);
     showSuccess('Cart cleared');
-  }, [showSuccess]);
+  }, []); // Remove showSuccess dependency to prevent re-renders
 
   const calculateTotal = useCallback(() => {
     return selectedItems.reduce((total, item) => {
@@ -176,7 +170,8 @@ const InhouseManagement = () => {
     const currentMenuIds = menuItems.map(item => item.id);
     const missingItems = selectedItems.filter(item => !currentMenuIds.includes(item.id));
     if (missingItems.length > 0) {
-      showError('Some selected items are no longer available. Please refresh the menu and try again.');
+      const itemNames = missingItems.map(item => item.name).join(', ');
+      showError(`Some items (${itemNames}) are no longer available. Please refresh the menu and try again.`);
       return;
     }
 
@@ -198,33 +193,28 @@ const InhouseManagement = () => {
           // Use the correct field for menu_item_id - try different possible field names
           const menuItemId = item.menu_item_id || item.id || item.menu_id;
           
-          // No logging to prevent refreshes
-          
           const itemData = {
             menu_item_id: menuItemId,
             quantity: item.quantity
           };
           
-          // Only add selected_variation if it exists
+          // Add selected_variation if it exists and item has multiple pricing
           if (item.pricing_type !== 'single' && item.price_variations && Object.keys(item.price_variations).length > 0) {
-            itemData.selected_variation = Object.keys(item.price_variations)[0];
+            if (item.selected_variation && item.price_variations[item.selected_variation]) {
+              itemData.selected_variation = item.selected_variation;
+            } else {
+              // Fallback to first available variation
+              itemData.selected_variation = Object.keys(item.price_variations)[0];
+            }
           }
           
-          // Only add special_instructions if needed (currently not implemented)
+          // Add special_instructions if needed (currently not implemented in UI)
           // itemData.special_instructions = "Extra spicy";
           
           return itemData;
-        }),
-        total_amount: calculateTotal(),
-        customer_name: 'Admin Order',
-        customer_phone: '0000000000',
-        delivery_address: 'Inhouse Order',
-        payment_method: 'cash',
-        order_type: 'inhouse'
+        })
       };
 
-          // Check if any item has menu_item_id = 21 (no logging to prevent refreshes)
-          const itemWithId21 = orderData.items.find(item => item.menu_item_id === 21);
       const response = await orderAPI.adminCreate(orderData);
       
       if (response.data.success) {
@@ -234,8 +224,7 @@ const InhouseManagement = () => {
         showError('Failed to create order: ' + (response.data.message || response.data.error || 'Unknown error'));
       }
     } catch (error) {
-      
-      // If it's a "not found" error, suggest refreshing the menu
+      // If it's a "not found" error, provide clear feedback about backend issue
       if (error.response?.data?.error && error.response.data.error.includes('not found')) {
         // Extract the ID from the error message
         const errorMessage = error.response.data.error;
@@ -250,7 +239,7 @@ const InhouseManagement = () => {
         
         const itemName = failedItem ? failedItem.name : 'Unknown Item';
         
-        showError(`Menu item "${itemName}" (ID: ${itemId}) is no longer available. Please refresh the menu and try again.`);
+        showError(`Menu item "${itemName}" (ID: ${itemId}) cannot be found in the database. This appears to be a backend synchronization issue. Please contact the development team to resolve this database inconsistency.`);
         
         // Clear the cart to prevent further issues
         clearCart();
@@ -262,7 +251,7 @@ const InhouseManagement = () => {
     } finally {
       setOrderLoading(false);
     }
-  }, [selectedItems, menuItems, showError, showSuccess, clearCart, fetchData]);
+  }, [selectedItems, menuItems, showError, showSuccess, clearCart]);
 
   // Search function
   const filteredItems = useMemo(() => {
