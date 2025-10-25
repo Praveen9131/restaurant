@@ -3,93 +3,174 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { adminAPI } from '../../services/api';
 import Loading from '../../components/common/Loading';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { generatePDF } from '../../utils/pdfGenerator';
 
 const AdminReports = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [reportData, setReportData] = useState(null);
-  const [reportType, setReportType] = useState('seven-days'); // 'seven-days' or 'custom'
+  const [error, setError] = useState('');
   const [customDateRange, setCustomDateRange] = useState({
     startDate: '',
     endDate: ''
   });
+  const [reportType, setReportType] = useState('sevenDays'); // 'sevenDays' or 'custom'
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [showCompleteOrders, setShowCompleteOrders] = useState(false);
+  const [expandedOrders, setExpandedOrders] = useState(new Set());
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
 
+  // Redirect if not admin
   useEffect(() => {
-    if (!user || !isAdmin) {
-      navigate('/admin/login');
-      return;
+    if (!isAdmin) {
+      navigate('/');
     }
+  }, [isAdmin, navigate]);
 
-    fetchReportData();
-  }, [user, isAdmin, navigate]);
-
-  const fetchReportData = useCallback(async () => {
+  const fetchReportData = useCallback(async (type = reportType, startDate = null, endDate = null) => {
     setLoading(true);
     setError('');
+    
     try {
+      console.log('🔄 [AdminReports] Fetching report data...', { type, startDate, endDate });
+      
       let response;
       
-      if (reportType === 'seven-days') {
-        response = await adminAPI.getSevenDayReport();
+      if (type === 'custom' && startDate && endDate) {
+        // Fetch custom date range report
+        response = await adminAPI.getCustomDateReport(startDate, endDate);
       } else {
-        if (!customDateRange.startDate || !customDateRange.endDate) {
-          setError('Please select both start and end dates for custom report');
-          setLoading(false);
-          return;
-        }
-        response = await adminAPI.getCustomDateReport(
-          customDateRange.startDate, 
-          customDateRange.endDate
-        );
+        // Fetch seven days report
+        response = await adminAPI.getReports();
       }
       
-      if (response.data.success) {
-        setReportData(response.data.report);
+      console.log('📊 [AdminReports] API Response:', {
+        status: response.status,
+        success: response.data?.success,
+        hasReport: !!response.data?.report,
+        reportKeys: response.data?.report ? Object.keys(response.data.report) : []
+      });
+      
+      if (response.data && response.data.success && response.data.report) {
+        setReportData(response.data);
       } else {
-        setError('Failed to fetch report data');
+        throw new Error('Invalid response format from reports API');
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch report data');
+      
+    } catch (error) {
+      console.error('❌ [AdminReports] Error fetching reports:', error);
+      
+      let errorMessage = '';
+      if (error.response?.status === 500) {
+        errorMessage = 'Server Error: Unable to fetch reports. Please try again later.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'API Endpoint Not Found: The reports endpoint is not available.';
+      } else if (error.response?.data?.error) {
+        errorMessage = `API Error: ${error.response.data.error}`;
+      } else if (error.response?.data?.message) {
+        errorMessage = `API Error: ${error.response.data.message}`;
+      } else if (error.message) {
+        errorMessage = `Network Error: ${error.message}`;
+      } else {
+        errorMessage = 'Unknown error occurred while fetching reports.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [reportType, customDateRange]);
+  }, [reportType]);
+
+  useEffect(() => {
+    fetchReportData();
+  }, [fetchReportData]);
 
   const handleReportTypeChange = (type) => {
     setReportType(type);
-    if (type === 'seven-days') {
-      fetchReportData();
+    if (type === 'sevenDays') {
+      fetchReportData('sevenDays');
     }
   };
 
-  const handleDateChange = (field, value) => {
+  const handleDateRangeChange = (field, value) => {
     setCustomDateRange(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleGenerateReport = () => {
-    if (reportType === 'custom' && (!customDateRange.startDate || !customDateRange.endDate)) {
-      setError('Please select both start and end dates');
+  const generateCustomReport = async () => {
+    if (!customDateRange.startDate || !customDateRange.endDate) {
+      alert('Please select both start and end dates');
       return;
     }
-    fetchReportData();
+
+    if (new Date(customDateRange.startDate) > new Date(customDateRange.endDate)) {
+      alert('Start date cannot be later than end date');
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    try {
+      await fetchReportData('custom', customDateRange.startDate, customDateRange.endDate);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const toggleOrderExpansion = (orderId) => {
+    setExpandedOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const viewOrderDetails = (order) => {
+    setSelectedOrder(order);
+    setShowOrderDetails(true);
+  };
+
+  const closeOrderDetails = () => {
+    setSelectedOrder(null);
+    setShowOrderDetails(false);
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return 'N/A';
+    return new Date(dateTimeString).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const downloadReport = (format) => {
     if (!reportData) {
-      alert('No report data available. Please generate a report first.');
+      alert('No report data available for download');
       return;
     }
     
-    const reportTitle = reportType === 'seven-days' 
-      ? 'Seven Day Report' 
-      : `Custom Report (${customDateRange.startDate} to ${customDateRange.endDate})`;
+    const reportTitle = reportType === 'custom' && customDateRange.startDate && customDateRange.endDate
+      ? `Custom Report (${customDateRange.startDate} to ${customDateRange.endDate})`
+      : `Seven Day Report`;
     
     console.log('Downloading report:', format, 'Title:', reportTitle);
     
@@ -100,279 +181,13 @@ const AdminReports = () => {
     }
   };
 
-  const testPDF = () => {
-    console.log('Testing PDF generation...');
-    const testData = {
-      summary: {
-        total_orders: 1,
-        total_revenue: 50,
-        average_order_value: 50,
-        status_summary: {
-          pending_orders_count: 19,
-          confirmed_orders_count: 62,
-          preparing_orders_count: 0,
-          out_for_delivery_orders_count: 4,
-          delivered_orders_count: 1,
-          cancelled_orders_count: 3
-        },
-        report_period: {
-          start_date: '2025-10-18',
-          end_date: '2025-10-24',
-          days: 7
-        }
-      },
-      sales_trend: [
-        { date: '2025-10-19', day_name: 'Sunday', orders: 1, revenue: 50 }
-      ],
-      top_selling_items: [
-        { menu_item__name: 'chicken praveen', menu_item__category__name: 'Fried Chicken', quantity_sold: 1, revenue: 50 }
-      ],
-      top_categories: [
-        { menu_item__category__name: 'Fried Chicken', total_orders: 1, total_items_sold: 1, total_revenue: 50 }
-      ],
-      order_type_analysis: [
-        { order_type: 'walk_in', total_orders: 1, total_revenue: 50, average_order_value: 50, status_summary: { delivered_orders_count: 1, pending_orders_count: 11 } }
-      ],
-      revenue_criteria: 'Only includes: Delivery (delivered) + Walk-in (confirmed)'
-    };
-    
-    setReportData(testData);
-    setTimeout(() => {
-      downloadAsPDF('Test Report');
-    }, 100);
-  };
-
-  const downloadAsPDF = (title) => {
-    if (!reportData) {
-      console.error('No report data available for PDF generation');
-      return;
-    }
-    
+  // Generate PDF using HTML/CSS approach
+  const downloadAsPDF = async (title) => {
     try {
-      console.log('Starting PDF generation...');
-      const { summary, sales_trend, top_selling_items, top_categories, order_type_analysis } = reportData;
-      
-      // Create new PDF document
-      const doc = new jsPDF('p', 'mm', 'a4');
-      console.log('PDF document created successfully');
-      
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      
-      // Colors
-      const primaryColor = [252, 128, 25]; // #FC8019 - Sea Side Bake orange
-      const secondaryColor = [28, 28, 28]; // #1C1C1C - Dark gray
-      const lightGray = [156, 156, 156]; // #9C9C9C - Light gray
-      
-      let yPosition = 20;
-      
-      // Header with restaurant branding
-      doc.setFillColor(...primaryColor);
-      doc.rect(0, 0, pageWidth, 30, 'F');
-      
-      // Restaurant name
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(24);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SEA SIDE BAKE', pageWidth / 2, 15, { align: 'center' });
-      
-      // Tagline
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Live • Fresh • Delicious', pageWidth / 2, 22, { align: 'center' });
-      
-      // Reset text color
-      doc.setTextColor(0, 0, 0);
-      yPosition = 40;
-      
-      // Report title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('RESTAURANT REPORT', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 15;
-      
-      // Report period
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Report Period: ${summary.report_period.start_date} to ${summary.report_period.end_date} (${summary.report_period.days} days)`, 20, yPosition);
-      yPosition += 8;
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 20, yPosition);
-      yPosition += 8;
-      doc.text(`Revenue Criteria: ${reportData.revenue_criteria}`, 20, yPosition);
-      yPosition += 15;
-      
-      // Summary section
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SUMMARY', 20, yPosition);
-      yPosition += 10;
-      
-      const summaryData = [
-        ['Total Orders', summary.total_orders.toString()],
-        ['Total Revenue', `₹${summary.total_revenue}`],
-        ['Average Order Value', `₹${summary.average_order_value}`]
-      ];
-      
-      doc.autoTable({
-        startY: yPosition,
-        head: [['Metric', 'Value']],
-        body: summaryData,
-        theme: 'grid',
-        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
-        styles: { fontSize: 10 },
-        margin: { left: 20, right: 20 }
-      });
-      
-      yPosition = doc.lastAutoTable.finalY + 15;
-      
-      // Status breakdown
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ORDER STATUS BREAKDOWN', 20, yPosition);
-      yPosition += 10;
-      
-      const statusData = Object.entries(summary.status_summary).map(([status, count]) => [
-        status.replace('_orders_count', '').replace('_', ' ').toUpperCase(),
-        count.toString()
-      ]);
-      
-      doc.autoTable({
-        startY: yPosition,
-        head: [['Status', 'Count']],
-        body: statusData,
-        theme: 'grid',
-        headStyles: { fillColor: secondaryColor, textColor: [255, 255, 255] },
-        styles: { fontSize: 10 },
-        margin: { left: 20, right: 20 }
-      });
-      
-      yPosition = doc.lastAutoTable.finalY + 15;
-      
-      // Order type analysis
-      if (order_type_analysis && order_type_analysis.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('ORDER TYPE ANALYSIS', 20, yPosition);
-        yPosition += 10;
-        
-        const orderTypeData = order_type_analysis.map(type => [
-          type.order_type.replace('_', ' ').toUpperCase(),
-          type.total_orders.toString(),
-          `₹${type.total_revenue}`,
-          `₹${type.average_order_value}`,
-          type.status_summary.delivered_orders_count.toString(),
-          type.status_summary.pending_orders_count.toString()
-        ]);
-        
-        doc.autoTable({
-          startY: yPosition,
-          head: [['Order Type', 'Orders', 'Revenue', 'Avg Value', 'Delivered', 'Pending']],
-          body: orderTypeData,
-          theme: 'grid',
-          headStyles: { fillColor: [75, 85, 99], textColor: [255, 255, 255] },
-          styles: { fontSize: 9 },
-          margin: { left: 20, right: 20 }
-        });
-        
-        yPosition = doc.lastAutoTable.finalY + 15;
-      }
-      
-      // Sales trend
-      if (sales_trend && sales_trend.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('SALES TREND', 20, yPosition);
-        yPosition += 10;
-        
-        const salesData = sales_trend.map(day => [
-          day.date,
-          day.day_name,
-          day.orders.toString(),
-          `₹${day.revenue}`
-        ]);
-        
-        doc.autoTable({
-          startY: yPosition,
-          head: [['Date', 'Day', 'Orders', 'Revenue']],
-          body: salesData,
-          theme: 'grid',
-          headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
-          styles: { fontSize: 10 },
-          margin: { left: 20, right: 20 }
-        });
-        
-        yPosition = doc.lastAutoTable.finalY + 15;
-      }
-      
-      // Top selling items
-      if (top_selling_items && top_selling_items.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('TOP SELLING ITEMS', 20, yPosition);
-        yPosition += 10;
-        
-        const itemsData = top_selling_items.map((item, index) => [
-          (index + 1).toString(),
-          item.menu_item__name,
-          item.menu_item__category__name,
-          item.quantity_sold.toString(),
-          `₹${item.revenue}`
-        ]);
-        
-        doc.autoTable({
-          startY: yPosition,
-          head: [['#', 'Item Name', 'Category', 'Qty Sold', 'Revenue']],
-          body: itemsData,
-          theme: 'grid',
-          headStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255] },
-          styles: { fontSize: 9 },
-          margin: { left: 20, right: 20 }
-        });
-        
-        yPosition = doc.lastAutoTable.finalY + 15;
-      }
-      
-      // Top categories
-      if (top_categories && top_categories.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('TOP CATEGORIES', 20, yPosition);
-        yPosition += 10;
-        
-        const categoriesData = top_categories.map((category, index) => [
-          (index + 1).toString(),
-          category.menu_item__category__name,
-          category.total_orders.toString(),
-          category.total_items_sold.toString(),
-          `₹${category.total_revenue}`
-        ]);
-        
-        doc.autoTable({
-          startY: yPosition,
-          head: [['#', 'Category', 'Orders', 'Items Sold', 'Revenue']],
-          body: categoriesData,
-          theme: 'grid',
-          headStyles: { fillColor: [147, 51, 234], textColor: [255, 255, 255] },
-          styles: { fontSize: 9 },
-          margin: { left: 20, right: 20 }
-        });
-      }
-      
-      // Footer
-      const footerY = pageHeight - 20;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...lightGray);
-      doc.text('Report generated by Sea Side Bake Restaurant Management System', 20, footerY);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth - 20, footerY, { align: 'right' });
-      
-      // Save the PDF
-      console.log('Saving PDF...');
-      doc.save(`${title}.pdf`);
-      console.log('PDF saved successfully');
+      await generatePDF(title, reportData);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please check the console for details.');
+      alert('Error generating PDF: ' + error.message);
     }
   };
 
@@ -390,167 +205,105 @@ const AdminReports = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const generateReportText = () => {
-    if (!reportData) return '';
-    
-    const { summary, sales_trend, top_selling_items, top_categories, order_type_analysis } = reportData;
-    
-    let content = `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-    content += `║                                    SEA SIDE BAKE                                    ║\n`;
-    content += `║                              Live • Fresh • Delicious                              ║\n`;
-    content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-    content += `║                                    RESTAURANT REPORT                               ║\n`;
-    content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    
-    content += `Report Period: ${summary.report_period.start_date} to ${summary.report_period.end_date} (${summary.report_period.days} days)\n`;
-    content += `Generated: ${new Date().toLocaleString()}\n`;
-    content += `Revenue Criteria: ${reportData.revenue_criteria}\n\n`;
-    
-    // Summary Table
-    content += `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-    content += `║                                    SUMMARY                                        ║\n`;
-    content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-    content += `║ Total Orders: ${String(summary.total_orders).padStart(8)} │ Total Revenue: ₹${String(summary.total_revenue).padStart(10)} │ Avg Order Value: ₹${String(summary.average_order_value).padStart(8)} ║\n`;
-    content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    
-    // Status Breakdown Table
-    content += `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-    content += `║                                ORDER STATUS BREAKDOWN                            ║\n`;
-    content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-    content += `║ Pending: ${String(summary.status_summary.pending_orders_count).padStart(8)} │ Confirmed: ${String(summary.status_summary.confirmed_orders_count).padStart(8)} │ Preparing: ${String(summary.status_summary.preparing_orders_count).padStart(8)} ║\n`;
-    content += `║ Out for Delivery: ${String(summary.status_summary.out_for_delivery_orders_count).padStart(4)} │ Delivered: ${String(summary.status_summary.delivered_orders_count).padStart(8)} │ Cancelled: ${String(summary.status_summary.cancelled_orders_count).padStart(8)} ║\n`;
-    content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    
-    // Order Type Analysis Table
-    if (order_type_analysis && order_type_analysis.length > 0) {
-      content += `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-      content += `║                               ORDER TYPE ANALYSIS                               ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      order_type_analysis.forEach(type => {
-        const orderType = type.order_type.replace('_', ' ').toUpperCase();
-        content += `║ ${orderType.padEnd(15)} │ Orders: ${String(type.total_orders).padStart(6)} │ Revenue: ₹${String(type.total_revenue).padStart(8)} │ Avg: ₹${String(type.average_order_value).padStart(8)} ║\n`;
-      });
-      content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    }
-    
-    // Sales Trend Table
-    if (sales_trend && sales_trend.length > 0) {
-      content += `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-      content += `║                                   SALES TREND                                   ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      content += `║ Date       │ Day        │ Orders │ Revenue ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      sales_trend.forEach(day => {
-        content += `║ ${day.date.padEnd(10)} │ ${day.day_name.padEnd(10)} │ ${String(day.orders).padStart(6)} │ ₹${String(day.revenue).padStart(6)} ║\n`;
-      });
-      content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    }
-    
-    // Top Selling Items Table
-    if (top_selling_items && top_selling_items.length > 0) {
-      content += `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-      content += `║                               TOP SELLING ITEMS                                 ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      content += `║ # │ Item Name                    │ Category        │ Qty Sold │ Revenue ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      top_selling_items.forEach((item, index) => {
-        const itemName = item.menu_item__name.length > 25 ? item.menu_item__name.substring(0, 22) + '...' : item.menu_item__name;
-        const category = item.menu_item__category__name.length > 12 ? item.menu_item__category__name.substring(0, 9) + '...' : item.menu_item__category__name;
-        content += `║ ${String(index + 1).padStart(2)} │ ${itemName.padEnd(25)} │ ${category.padEnd(12)} │ ${String(item.quantity_sold).padStart(8)} │ ₹${String(item.revenue).padStart(6)} ║\n`;
-      });
-      content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    }
-    
-    // Top Categories Table
-    if (top_categories && top_categories.length > 0) {
-      content += `╔══════════════════════════════════════════════════════════════════════════════════╗\n`;
-      content += `║                                TOP CATEGORIES                                   ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      content += `║ # │ Category Name               │ Orders │ Items Sold │ Revenue ║\n`;
-      content += `╠══════════════════════════════════════════════════════════════════════════════════╣\n`;
-      top_categories.forEach((category, index) => {
-        const categoryName = category.menu_item__category__name.length > 22 ? category.menu_item__category__name.substring(0, 19) + '...' : category.menu_item__category__name;
-        content += `║ ${String(index + 1).padStart(2)} │ ${categoryName.padEnd(25)} │ ${String(category.total_orders).padStart(6)} │ ${String(category.total_items_sold).padStart(10)} │ ₹${String(category.total_revenue).padStart(6)} ║\n`;
-      });
-      content += `╚══════════════════════════════════════════════════════════════════════════════════╝\n\n`;
-    }
-    
-    content += `\n═══════════════════════════════════════════════════════════════════════════════════════\n`;
-    content += `Report generated by Sea Side Bake Restaurant Management System\n`;
-    content += `Generated on: ${new Date().toLocaleString()}\n`;
-    content += `═══════════════════════════════════════════════════════════════════════════════════════\n`;
-    
-    return content;
-  };
-
   const generateReportCSV = () => {
-    if (!reportData) return '';
+    if (!reportData?.report) return '';
     
-    const { summary, sales_trend, top_selling_items, top_categories } = reportData;
+    const { summary, sales_trend, top_selling_items, top_categories } = reportData.report;
     
-    let csv = 'Report Type,Value\n';
-    csv += `Report Period,"${summary.report_period.start_date} to ${summary.report_period.end_date}"\n`;
+    let csv = 'Report Data\n\n';
+    csv += 'SUMMARY\n';
     csv += `Total Orders,${summary.total_orders}\n`;
     csv += `Total Revenue,${summary.total_revenue}\n`;
-    csv += `Average Order Value,${summary.average_order_value}\n`;
-    csv += `Pending Orders,${summary.status_summary.pending_orders_count}\n`;
-    csv += `Confirmed Orders,${summary.status_summary.confirmed_orders_count}\n`;
-    csv += `Preparing Orders,${summary.status_summary.preparing_orders_count}\n`;
-    csv += `Out for Delivery,${summary.status_summary.out_for_delivery_orders_count}\n`;
-    csv += `Delivered Orders,${summary.status_summary.delivered_orders_count}\n`;
-    csv += `Cancelled Orders,${summary.status_summary.cancelled_orders_count}\n\n`;
+    csv += `Average Order Value,${summary.average_order_value}\n\n`;
     
-    if (sales_trend && sales_trend.length > 0) {
+    csv += 'SALES TREND\n';
       csv += 'Date,Day,Orders,Revenue\n';
       sales_trend.forEach(day => {
         csv += `${day.date},${day.day_name},${day.orders},${day.revenue}\n`;
       });
-      csv += '\n';
-    }
     
-    if (top_selling_items && top_selling_items.length > 0) {
+    csv += '\nTOP SELLING ITEMS\n';
       csv += 'Item Name,Category,Quantity Sold,Revenue\n';
       top_selling_items.forEach(item => {
-        csv += `"${item.menu_item__name}","${item.menu_item__category__name}",${item.quantity_sold},${item.revenue}\n`;
-      });
-      csv += '\n';
-    }
-    
-    if (top_categories && top_categories.length > 0) {
-      csv += 'Category,Total Orders,Total Revenue\n';
-      top_categories.forEach(category => {
-        csv += `"${category.menu_item__category__name}",${category.total_orders},${category.total_revenue}\n`;
-      });
-    }
+      csv += `${item.menu_item__name},${item.menu_item__category__name},${item.quantity_sold},${item.revenue}\n`;
+    });
     
     return csv;
   };
 
-  if (loading) return <Loading />;
+  if (loading) {
+    return <Loading />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Reports</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={fetchReportData}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!reportData?.report) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <div className="text-gray-400 text-6xl mb-4">📊</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">No Report Data</h2>
+            <p className="text-gray-600 mb-6">No report data available at the moment.</p>
+            <button
+              onClick={fetchReportData}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { summary, sales_trend, top_selling_items, top_categories, order_type_analysis } = reportData.report;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Reports</h1>
-          <p className="text-gray-600">Generate and download comprehensive restaurant reports</p>
+          <p className="text-gray-600">Comprehensive restaurant analytics and insights</p>
         </div>
 
+        {/* Report Filter */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Report Filter</h2>
+
         {/* Report Type Selection */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Report Type</h2>
-          <div className="flex space-x-4 mb-4">
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-3">Report Type</label>
+            <div className="flex space-x-4">
             <label className="flex items-center">
               <input
                 type="radio"
                 name="reportType"
-                value="seven-days"
-                checked={reportType === 'seven-days'}
+                  value="sevenDays"
+                  checked={reportType === 'sevenDays'}
                 onChange={(e) => handleReportTypeChange(e.target.value)}
-                className="mr-2"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
               />
-              <span className="text-gray-700">Seven Day Report</span>
+                <span className="ml-2 text-sm text-gray-700">Seven Days Report</span>
             </label>
             <label className="flex items-center">
               <input
@@ -559,197 +312,175 @@ const AdminReports = () => {
                 value="custom"
                 checked={reportType === 'custom'}
                 onChange={(e) => handleReportTypeChange(e.target.value)}
-                className="mr-2"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
               />
-              <span className="text-gray-700">Custom Date Range</span>
+                <span className="ml-2 text-sm text-gray-700">Custom Date Range</span>
             </label>
+            </div>
           </div>
 
           {/* Custom Date Range */}
           {reportType === 'custom' && (
-            <div className="flex space-x-4 mb-4">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">Select Date Range</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
                 <input
                   type="date"
                   value={customDateRange.startDate}
-                  onChange={(e) => handleDateChange('startDate', e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    max={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
                 <input
                   type="date"
                   value={customDateRange.endDate}
-                  onChange={(e) => handleDateChange('endDate', e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    max={new Date().toISOString().split('T')[0]}
+                    min={customDateRange.startDate}
                 />
               </div>
               <div className="flex items-end">
                 <button
-                  onClick={handleGenerateReport}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  Generate Report
+                    onClick={generateCustomReport}
+                    disabled={isGeneratingReport || !customDateRange.startDate || !customDateRange.endDate}
+                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2"
+                  >
+                    {isGeneratingReport ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <span>Generate Report</span>
+                      </>
+                    )}
                 </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Current Report Info */}
+          {reportData && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span className="text-sm font-medium text-gray-700">
+                  Current Report: {reportType === 'custom' && customDateRange.startDate && customDateRange.endDate
+                    ? `${customDateRange.startDate} to ${customDateRange.endDate}`
+                    : 'Last 7 Days'
+                  }
+                </span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
+        {/* Download Controls */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Download Reports</h2>
+          <div className="flex flex-wrap gap-4">
+            <button
+              onClick={() => downloadReport('pdf')}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Download PDF</span>
+            </button>
+            <button
+              onClick={() => downloadReport('excel')}
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Download Excel</span>
+            </button>
+            <button
+              onClick={() => setShowCompleteOrders(!showCompleteOrders)}
+              className={`${showCompleteOrders ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span>{showCompleteOrders ? 'Hide Complete Orders' : 'View Complete Orders'}</span>
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Report Data */}
-        {reportData && (
-          <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Orders</h3>
-                <p className="text-3xl font-bold text-blue-600">{reportData.summary.total_orders}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {reportData.summary.report_period.days} days
-                </p>
+            <p className="text-3xl font-bold text-blue-600">{summary.total_orders}</p>
+            <p className="text-sm text-gray-500 mt-1">All time orders</p>
               </div>
-              
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Revenue</h3>
-                <p className="text-3xl font-bold text-green-600">₹{reportData.summary.total_revenue}</p>
+            <p className="text-3xl font-bold text-green-600">₹{summary.total_revenue}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Avg: ₹{reportData.summary.average_order_value}
+              Avg: ₹{summary.average_order_value}
                 </p>
               </div>
-              
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Delivered Orders</h3>
-                <p className="text-3xl font-bold text-green-600">
-                  {reportData.summary.status_summary.delivered_orders_count}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">Completed</p>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Pending Orders</h3>
-                <p className="text-3xl font-bold text-yellow-600">
-                  {reportData.summary.status_summary.pending_orders_count}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">Awaiting</p>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">Report Period</h3>
+            <p className="text-lg font-bold text-orange-600">
+              {summary.report_period.days} days
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              {summary.report_period.start_date} to {summary.report_period.end_date}
+            </p>
               </div>
             </div>
 
             {/* Status Breakdown */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                Order Status Breakdown
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {Object.entries(reportData.summary.status_summary).map(([status, count]) => (
-                  <div key={status} className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150">
-                    <div className="text-2xl font-bold text-gray-800">{count}</div>
-                    <div className="text-sm text-gray-600 capitalize">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Order Status Breakdown</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(summary.status_summary).map(([status, count]) => (
+              <div key={status} className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-2xl font-bold text-gray-900">{count}</p>
+                <p className="text-sm text-gray-600 capitalize">
                       {status.replace('_orders_count', '').replace('_', ' ')}
-                    </div>
+                </p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Order Type Analysis */}
-            {reportData.order_type_analysis && reportData.order_type_analysis.length > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
-                  Order Type Analysis
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full table-auto border-collapse">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-indigo-50 to-blue-50">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-indigo-200">Order Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-indigo-200">Orders</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-indigo-200">Revenue</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-indigo-200">Avg Order Value</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-indigo-200">Delivered</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-indigo-200">Pending</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.order_type_analysis.map((type, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                              {type.order_type.replace('_', ' ').toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {type.total_orders}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">₹{type.total_revenue}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{type.average_order_value}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              {type.status_summary.delivered_orders_count}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              {type.status_summary.pending_orders_count}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
             {/* Sales Trend */}
-            {reportData.sales_trend && reportData.sales_trend.length > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  Sales Trend
-                </h3>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Sales Trend</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full table-auto border-collapse">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-blue-200">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-blue-200">Day</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-blue-200">Orders</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-blue-200">Revenue</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.sales_trend.map((day, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{day.date}</td>
+                {sales_trend.map((day, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{day.date}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{day.day_name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {day.orders}
-                            </span>
-                          </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{day.orders}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">₹{day.revenue}</td>
                         </tr>
                       ))}
@@ -757,47 +488,28 @@ const AdminReports = () => {
                   </table>
                 </div>
               </div>
-            )}
 
             {/* Top Selling Items */}
-            {reportData.top_selling_items && reportData.top_selling_items.length > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                  </svg>
-                  Top Selling Items
-                </h3>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Top Selling Items</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full table-auto border-collapse">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-green-50 to-emerald-50">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-green-200">#</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-green-200">Item Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-green-200">Category</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-green-200">Quantity Sold</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-green-200">Revenue</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Sold</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.top_selling_items.map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-800 text-sm font-bold">
-                              {index + 1}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.menu_item__name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {item.menu_item__category__name}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {item.quantity_sold}
-                            </span>
-                          </td>
+                {top_selling_items.map((item, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.menu_item__name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.menu_item__category__name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.quantity_sold}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">₹{item.revenue}</td>
                         </tr>
                       ))}
@@ -805,47 +517,28 @@ const AdminReports = () => {
                   </table>
                 </div>
               </div>
-            )}
 
             {/* Top Categories */}
-            {reportData.top_categories && reportData.top_categories.length > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  Top Categories
-                </h3>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Top Categories</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full table-auto border-collapse">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-purple-50 to-violet-50">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-purple-200">#</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-purple-200">Category</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-purple-200">Total Orders</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-purple-200">Items Sold</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b-2 border-purple-200">Revenue</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items Sold</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.top_categories.map((category, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-800 text-sm font-bold">
-                              {index + 1}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{category.menu_item__category__name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {category.total_orders}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              {category.total_items_sold}
-                            </span>
-                          </td>
+                {top_categories.map((category, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{category.menu_item__category__name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{category.total_orders}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{category.total_items_sold}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">₹{category.total_revenue}</td>
                         </tr>
                       ))}
@@ -853,48 +546,440 @@ const AdminReports = () => {
                   </table>
                 </div>
               </div>
-            )}
 
-            {/* Download Options */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Download Report</h3>
-              <div className="flex space-x-4 flex-wrap">
-                <button
-                  onClick={() => downloadReport('pdf')}
-                  className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download PDF Report
-                </button>
-                <button
-                  onClick={() => downloadReport('excel')}
-                  className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download Excel
-                </button>
-                <button
-                  onClick={testPDF}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Test PDF
-                </button>
-              </div>
+        {/* Detailed Orders */}
+        {reportData.report.detailed_orders && reportData.report.detailed_orders.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Detailed Orders</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery Fee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {reportData.report.detailed_orders.slice(0, 20).map((order, index) => {
+                    const subtotal = parseFloat(order.subtotal) || 0;
+                    const totalAmount = parseFloat(order.total_amount) || 0;
+                    const calculatedDeliveryFee = totalAmount - subtotal;
+                    
+                    return (
+                      <React.Fragment key={order.order_id || index}>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {order.order_number || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.customer_name || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.order_date || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.order_type || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {order.status || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.items_count || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            ₹{subtotal}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
+                            ₹{calculatedDeliveryFee.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                            ₹{totalAmount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => viewOrderDetails(order)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium transition-colors flex items-center space-x-1"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              <span>View</span>
+                            </button>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* No Data Message */}
-        {!loading && !reportData && !error && (
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <p className="text-gray-500">No report data available. Generate a report to view data.</p>
+        {/* Complete Orders View */}
+        {showCompleteOrders && reportData.report.detailed_orders && reportData.report.detailed_orders.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Complete Orders Details</h3>
+            <p className="text-sm text-gray-600 mb-6">Click on any order to view detailed item information</p>
+            
+            <div className="space-y-4">
+              {reportData.report.detailed_orders.map((order, index) => {
+                const subtotal = parseFloat(order.subtotal) || 0;
+                const totalAmount = parseFloat(order.total_amount) || 0;
+                const calculatedDeliveryFee = totalAmount - subtotal;
+                const isExpanded = expandedOrders.has(order.order_id);
+                
+                return (
+                  <div key={order.order_id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Order Header */}
+                    <div 
+                      className="p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                      onClick={() => toggleOrderExpansion(order.order_id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <svg 
+                              className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <h4 className="text-lg font-semibold text-gray-900">
+                              Order #{order.order_number || order.order_id}
+                            </h4>
+                          </div>
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                            order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {order.status?.toUpperCase() || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-green-600">
+                            {formatCurrency(totalAmount)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {order.items_count || 0} items
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Customer:</span>
+                          <div className="font-medium text-gray-900">{order.customer_name || 'N/A'}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Phone:</span>
+                          <div className="font-medium text-gray-900">{order.customer_phone || 'N/A'}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Date & Time:</span>
+                          <div className="font-medium text-gray-900">{formatDateTime(order.order_datetime)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Type:</span>
+                          <div className="font-medium text-gray-900 capitalize">{order.order_type || 'N/A'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded Order Details */}
+                    {isExpanded && (
+                      <div className="p-6 bg-white border-t border-gray-200">
+                        {/* Order Summary */}
+                        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                          <h5 className="text-sm font-semibold text-gray-800 mb-3">Order Summary</h5>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div className="text-center">
+                              <div className="text-gray-500 mb-1">Subtotal</div>
+                              <div className="text-lg font-semibold text-gray-900">
+                                {formatCurrency(subtotal)}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-gray-500 mb-1">Delivery Fee</div>
+                              <div className="text-lg font-semibold text-blue-600">
+                                {formatCurrency(calculatedDeliveryFee)}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-gray-500 mb-1">Total Amount</div>
+                              <div className="text-xl font-bold text-green-600">
+                                {formatCurrency(totalAmount)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items Details */}
+                        <div className="mb-4">
+                          <h5 className="text-sm font-semibold text-gray-800 mb-3">Order Items</h5>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Details</th>
+                                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {order.items?.map((item, itemIndex) => (
+                                  <tr key={itemIndex} className="hover:bg-gray-50">
+                                    <td className="px-4 py-4">
+                                      <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                                      {item.selected_variation && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          <span className="font-medium">Variation:</span> {item.selected_variation}
+                                        </div>
+                                      )}
+                                      {item.special_instructions && (
+                                        <div className="text-xs text-gray-500 mt-1 italic">
+                                          <span className="font-medium">Note:</span> {item.special_instructions}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-4 text-center">
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {item.category}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-4 text-center">
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        {item.quantity}x
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-4 text-right text-sm font-semibold text-gray-900">
+                                      {formatCurrency(item.price)}
+                                    </td>
+                                    <td className="px-4 py-4 text-right text-sm font-bold text-green-600">
+                                      {formatCurrency(item.subtotal)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Delivery Address */}
+                        {order.delivery_address && order.delivery_address !== 'Walk-in' && (
+                          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                            <h5 className="text-sm font-semibold text-gray-800 mb-2">Delivery Address</h5>
+                            <p className="text-sm text-gray-700">{order.delivery_address}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Order Details Modal */}
+        {showOrderDetails && selectedOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Order Details - {selectedOrder.order_number || selectedOrder.order_id}
+                  </h2>
+                </div>
+                <button
+                  onClick={closeOrderDetails}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                {/* Order Information */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Customer:</span>
+                      <div className="font-medium text-gray-900">{selectedOrder.customer_name || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Phone:</span>
+                      <div className="font-medium text-gray-900">{selectedOrder.customer_phone || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Email:</span>
+                      <div className="font-medium text-gray-900">{selectedOrder.customer_email || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Order Type:</span>
+                      <div className="font-medium text-gray-900 capitalize">{selectedOrder.order_type || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Status:</span>
+                      <div className="mt-1">
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                          selectedOrder.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          selectedOrder.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          selectedOrder.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          selectedOrder.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {selectedOrder.status?.toUpperCase() || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Date & Time:</span>
+                      <div className="font-medium text-gray-900">{formatDateTime(selectedOrder.order_datetime)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Items Summary Box */}
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <h5 className="text-sm font-semibold text-gray-800">Order Items ({selectedOrder.items_count || 0} items)</h5>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="text-gray-500 mb-1">Subtotal ({selectedOrder.items_count || 0} items)</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {formatCurrency(parseFloat(selectedOrder.subtotal) || 0)}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-gray-500 mb-1">Delivery Fee</div>
+                      <div className="text-lg font-semibold text-blue-600">
+                        {formatCurrency((parseFloat(selectedOrder.total_amount) || 0) - (parseFloat(selectedOrder.subtotal) || 0))}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-gray-500 mb-1">Total Amount</div>
+                      <div className="text-xl font-bold text-green-600">
+                        {formatCurrency(parseFloat(selectedOrder.total_amount) || 0)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Item Details Table */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-semibold text-gray-800 mb-3">ITEM DETAILS</h5>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Details</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedOrder.items?.map((item, itemIndex) => (
+                          <tr key={itemIndex} className="hover:bg-gray-50">
+                            <td className="px-4 py-4">
+                              <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {formatCurrency(item.price)} per item
+                              </div>
+                              {item.selected_variation && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  <span className="font-medium">Variation:</span> {item.selected_variation}
+                                </div>
+                              )}
+                              {item.special_instructions && (
+                                <div className="text-xs text-gray-500 mt-1 italic">
+                                  <span className="font-medium">Note:</span> {item.special_instructions}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {item.category}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {item.quantity}x
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-right text-sm font-semibold text-gray-900">
+                              {formatCurrency(item.price)}
+                            </td>
+                            <td className="px-4 py-4 text-right text-sm font-semibold text-gray-900">
+                              {formatCurrency(item.subtotal)}
+                            </td>
+                            <td className="px-4 py-4 text-right text-sm font-bold text-green-600">
+                              {formatCurrency(item.subtotal)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Delivery Address */}
+                {selectedOrder.delivery_address && selectedOrder.delivery_address !== 'Walk-in' && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h5 className="text-sm font-semibold text-gray-800 mb-2">Delivery Address</h5>
+                    <p className="text-sm text-gray-700">{selectedOrder.delivery_address}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={closeOrderDetails}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

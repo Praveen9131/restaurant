@@ -27,7 +27,16 @@ const OrdersManagement = () => {
       // Use backend data directly without frontend processing
       const backendData = response.data;
       
-      setOrders(backendData.orders || []);
+      // Ensure proper data structure for financial calculations
+      const processedOrders = (backendData.orders || []).map(order => ({
+        ...order,
+        subtotal: parseFloat(order.subtotal) || 0,
+        delivery_fee: parseFloat(order.delivery_fee) || 0,
+        total_amount: parseFloat(order.total_amount) || 0,
+        items_count: order.items?.length || 0
+      }));
+      
+      setOrders(processedOrders);
       setStatusCounts(backendData.status_counts || {});
     } catch (error) {
       showError('Failed to fetch orders: ' + (error.response?.data?.message || error.message));
@@ -377,42 +386,60 @@ const OrdersManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {order.items?.length || 0} items
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ₹{Math.round(order.subtotal || 0)}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-semibold text-gray-900">
+                      ₹{Math.round(order.subtotal || 0)}
+                    </div>
+                    <div className="text-xs text-gray-500">Subtotal</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-blue-600">
-                        ₹{order.delivery_fee || 0}
-                      </span>
-                      <input
-                        type="number"
-                        placeholder="New fee"
-                        className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                        min="0"
-                        step="0.01"
-                        id={`deliveryFee_${order.order_id}`}
-                      />
-                      <button
-                        onClick={() => {
-                          const newFee = parseFloat(document.getElementById(`deliveryFee_${order.order_id}`).value);
-                          if (!isNaN(newFee) && newFee >= 0) {
-                            if (confirm(`Update delivery fee to ₹${newFee}?`)) {
-                              updateDeliveryFee(order.order_id, newFee);
-                              document.getElementById(`deliveryFee_${order.order_id}`).value = '';
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-semibold text-blue-600">
+                          ₹{(() => {
+                            // Calculate delivery fee as difference between total and subtotal if not provided
+                            if (order.delivery_fee && order.delivery_fee > 0) {
+                              return order.delivery_fee.toFixed(2);
                             }
-                          } else {
-                            showError('Please enter a valid delivery fee amount');
-                          }
-                        }}
-                        className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
-                      >
-                        Update
-                      </button>
+                            const calculatedDeliveryFee = (order.total_amount || 0) - (order.subtotal || 0);
+                            return calculatedDeliveryFee > 0 ? calculatedDeliveryFee.toFixed(2) : '0.00';
+                          })()}
+                        </span>
+                        <span className="text-xs text-gray-500">Delivery</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <input
+                          type="number"
+                          placeholder="New fee"
+                          className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          min="0"
+                          step="0.01"
+                          id={`deliveryFee_${order.order_id}`}
+                        />
+                        <button
+                          onClick={() => {
+                            const newFee = parseFloat(document.getElementById(`deliveryFee_${order.order_id}`).value);
+                            if (!isNaN(newFee) && newFee >= 0) {
+                              if (confirm(`Update delivery fee to ₹${newFee}?`)) {
+                                updateDeliveryFee(order.order_id, newFee);
+                                document.getElementById(`deliveryFee_${order.order_id}`).value = '';
+                              }
+                            } else {
+                              showError('Please enter a valid delivery fee amount');
+                            }
+                          }}
+                          className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                        >
+                          Update
+                        </button>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ₹{Math.round(order.total_amount || 0)}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-lg font-bold text-green-600">
+                      ₹{Math.round(order.total_amount || 0)}
+                    </div>
+                    <div className="text-xs text-gray-500">Total</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
@@ -444,6 +471,43 @@ const OrdersManagement = () => {
                 </tr>
               ))}
             </tbody>
+            {/* Summary Row */}
+            <tfoot className="bg-gray-50">
+              <tr className="border-t-2 border-gray-300">
+                <td className="px-6 py-4 text-sm font-bold text-gray-900" colSpan="3">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    TOTALS ({filteredOrders.length} orders)
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-bold text-gray-900">
+                    ₹{Math.round(filteredOrders.reduce((sum, order) => sum + (order.subtotal || 0), 0))}
+                  </div>
+                  <div className="text-xs text-gray-500">Subtotal</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-bold text-blue-600">
+                    ₹{(() => {
+                      const totalSubtotal = filteredOrders.reduce((sum, order) => sum + (order.subtotal || 0), 0);
+                      const totalAmount = filteredOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+                      const totalDeliveryFee = totalAmount - totalSubtotal;
+                      return totalDeliveryFee.toFixed(2);
+                    })()}
+                  </div>
+                  <div className="text-xs text-gray-500">Delivery</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-lg font-bold text-green-600">
+                    ₹{Math.round(filteredOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0))}
+                  </div>
+                  <div className="text-xs text-gray-500">Total</div>
+                </td>
+                <td className="px-6 py-4" colSpan="3"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 

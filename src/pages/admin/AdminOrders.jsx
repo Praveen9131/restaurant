@@ -160,8 +160,15 @@ const AdminOrders = () => {
 
   const calculateOrderBreakdown = (order) => {
     // Use API data if available, otherwise calculate
-    const subtotal = order.subtotal || calculateSubtotal(order.items);
-    const deliveryFee = order.delivery_fee || 0;
+    const subtotal = parseFloat(order.subtotal) || calculateSubtotal(order.items);
+    const totalAmount = parseFloat(order.total_amount) || 0;
+    
+    // Calculate delivery fee as difference between total and subtotal if not provided
+    let deliveryFee = parseFloat(order.delivery_fee) || 0;
+    if (!deliveryFee && totalAmount > subtotal) {
+      deliveryFee = totalAmount - subtotal;
+    }
+    
     const tax = calculateTax(subtotal);
     const calculatedTotal = subtotal + deliveryFee + tax;
     
@@ -170,7 +177,7 @@ const AdminOrders = () => {
       deliveryFee,
       tax,
       calculatedTotal,
-      apiTotal: order.total_amount
+      apiTotal: totalAmount
     };
   };
 

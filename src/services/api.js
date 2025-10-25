@@ -277,23 +277,13 @@ export const adminAPI = {
     console.log('AdminAPI: Updating delivery fee with data:', data);
     return api.post('/update-delivery-fee/', data);
   },
-  // Customer management endpoints (uses same endpoint as orders since customers are extracted from orders)
+  // Customer management endpoints
   getCustomers: async () => {
     console.log('🔍 [API] Calling getCustomers');
     
-    try {
-      // Try primary endpoint first
-      const response = await api.get('/AdminOrdersView/');
-      console.log('✅ [API] getCustomers success:', response.status);
-      return response;
-    } catch (error) {
-      console.warn('⚠️ [API] getCustomers failed, trying Dashboard API:', error.message);
-      
-      // Try fallback to Dashboard API
-      const dashboardResponse = await api.get('/Dashboard/');
-      console.log('✅ [API] getCustomers fallback success:', dashboardResponse.status);
-      return dashboardResponse;
-    }
+    const response = await api.get('/customers/');
+    console.log('✅ [API] getCustomers success:', response.status);
+    return response;
   },
   getCustomerOrders: (customerId) => {
     return api.get(`/customer_orders/?customer_id=${customerId}`);

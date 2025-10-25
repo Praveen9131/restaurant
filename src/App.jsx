@@ -42,6 +42,7 @@ import InhouseManagement from './pages/admin/InhouseManagement';
 import AdminReports from './pages/admin/AdminReports';
 import APIDebug from './pages/admin/APIDebug';
 import AllOrdersManagement from './pages/admin/AllOrdersManagement';
+import CustomersData from './pages/admin/CustomersData';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -181,6 +182,7 @@ function App() {
               <Route path="orders" element={<OrdersManagement />} />
               <Route path="customers" element={<CustomerManagement />} />
               <Route path="customers/:customerId" element={<CustomerDetailsPage />} />
+              <Route path="customers-data" element={<CustomersData />} />
               <Route path="inquiries" element={<InquiriesManagement />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="inhouse" element={<InhouseManagement />} />

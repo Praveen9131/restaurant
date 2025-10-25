@@ -11,6 +11,21 @@ const AllOrdersManagement = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null);
 
+  // FIXED: Proper currency formatting function
+  const formatCurrency = useCallback((amount) => {
+    // Convert to number and handle invalid values
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount)) return '₹0.00';
+    
+    // Format with proper Indian currency format
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numAmount);
+  }, []);
+
   // Fetch all orders by trying multiple approaches
   const fetchOrders = useCallback(async () => {
     try {
@@ -63,7 +78,34 @@ const AllOrdersManagement = () => {
       }
       
       console.log('📋 [AllOrdersManagement] Final orders list:', ordersList.length);
-      setOrders(ordersList);
+      
+      // FIXED: Process orders to ensure proper financial data structure with better number handling
+      const processedOrders = ordersList.map((order, index) => {
+        const processed = {
+          ...order,
+          subtotal: parseFloat(order.subtotal) || 0,
+          delivery_fee: parseFloat(order.delivery_fee) || 0,
+          total_amount: parseFloat(order.total_amount) || 0,
+          items_count: order.items?.length || 0
+        };
+        
+        // Debug logging for first few orders
+        if (index < 3) {
+          console.log('🔍 [AllOrdersManagement] Processing order:', {
+            order_id: order.order_id,
+            original_subtotal: order.subtotal,
+            processed_subtotal: processed.subtotal,
+            original_delivery_fee: order.delivery_fee,
+            processed_delivery_fee: processed.delivery_fee,
+            original_total_amount: order.total_amount,
+            processed_total_amount: processed.total_amount
+          });
+        }
+        
+        return processed;
+      });
+      
+      setOrders(processedOrders);
       
       if (ordersList.length === 0) {
         setError('No orders found in the system. Please check if there are any orders in the database.');
@@ -147,43 +189,28 @@ const AllOrdersManagement = () => {
     setShowStatusModal(true);
   }, []);
 
-  // Filter orders based on search term and status
+  // Load orders on component mount
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // Filter orders based on search and status
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = searchTerm === '' || 
         order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.order_id?.toString().includes(searchTerm) ||
         order.order_number?.toString().includes(searchTerm);
       
-      const matchesStatus = !statusFilter || order.status === statusFilter;
+      const matchesStatus = statusFilter === '' || order.status === statusFilter;
       
       return matchesSearch && matchesStatus;
     });
   }, [orders, searchTerm, statusFilter]);
 
-  // Format currency
-  const formatCurrency = useCallback((amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  }, []);
-
-  // Format date
-  const formatDate = useCallback((dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }, []);
-
-  // Get status badge
-  const getStatusBadge = useCallback((status) => {
-    const statusClasses = {
+  // Get status badge color
+  const getStatusColor = (status) => {
+    const statusColors = {
       pending: 'bg-yellow-100 text-yellow-800',
       confirmed: 'bg-blue-100 text-blue-800',
       preparing: 'bg-orange-100 text-orange-800',
@@ -191,153 +218,199 @@ const AllOrdersManagement = () => {
       delivered: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800'
     };
-    
-    return (
-      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-        statusClasses[status] || 'bg-gray-100 text-gray-800'
-      }`}>
-        {status?.replace('_', ' ').toUpperCase()}
-      </span>
-    );
-  }, []);
+    return statusColors[status] || 'bg-gray-100 text-gray-800';
+  };
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-      </div>
-    );
-  }
+  // Format status for display
+  const formatStatus = (status) => {
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   return (
-    <div className="p-6 w-full overflow-x-hidden">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">All Orders Management</h1>
-        <p className="text-gray-600">View and manage all orders across all customers</p>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 text-red-700 p-4 mb-6 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-sm font-medium">{error}</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">All Orders Management</h1>
+          <p className="text-gray-600">View and manage all customer orders</p>
         </div>
-      )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search Orders</label>
-            <div className="relative">
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search Orders</label>
               <input
                 type="text"
-                placeholder="Search by customer name, order ID..."
+                placeholder="Search by customer name or order number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
             </div>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="preparing">Preparing</option>
-              <option value="out_for_delivery">Out for Delivery</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          {/* Results Count */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Results</label>
-            <div className="px-3 py-2 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">
-                {filteredOrders.length} of {orders.length} orders
-              </span>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="preparing">Preparing</option>
+                <option value="out_for_delivery">Out for Delivery</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={fetchOrders}
+                disabled={loading}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b border-white"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Refresh Orders</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Orders List */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Orders List</h2>
-          
-          {filteredOrders.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-red-500 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <h3 className="text-sm font-medium text-gray-900 mb-1">No orders found</h3>
-              <p className="text-sm text-gray-500">
-                {searchTerm || statusFilter ? 'No orders match your current filters' : 'No orders found in the system'}
+              <div>
+                <h3 className="text-sm font-medium text-red-800 mb-1">Error</h3>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Orders Count */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">
+            Showing <span className="font-semibold text-gray-900">{filteredOrders.length}</span> of{' '}
+            <span className="font-semibold text-gray-900">{orders.length}</span> orders
+          </p>
+        </div>
+
+        {/* Orders List */}
+        <div className="bg-white rounded-lg shadow-md">
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-600">Loading orders...</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="p-12 text-center">
+              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">No orders found</h3>
+              <p className="text-gray-600">
+                {searchTerm || statusFilter ? 'Try adjusting your filters' : 'No orders available'}
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="divide-y divide-gray-200">
               {filteredOrders.map((order) => (
-                <div key={order.order_id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-3">
+                <div key={order.order_id} className="p-6 hover:bg-gray-50 transition-colors duration-200">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-4 mb-2">
-                        <h3 className="text-sm font-semibold text-gray-900">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <h3 className="text-lg font-semibold text-gray-900">
                           Order #{order.order_number || order.order_id}
                         </h3>
-                        {getStatusBadge(order.status)}
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                          {formatStatus(order.status)}
+                        </span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-600">
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 text-sm">
                         <div>
-                          <strong>Customer:</strong> {order.customer_name}
+                          <span className="text-gray-600">Customer:</span>
+                          <span className="ml-2 font-medium text-gray-900">{order.customer_name}</span>
                         </div>
                         <div>
-                          <strong>Date:</strong> {formatDate(order.order_date)}
+                          <span className="text-gray-600">Phone:</span>
+                          <span className="ml-2 font-medium text-gray-900">{order.phone_number}</span>
                         </div>
                         <div>
-                          <strong>Amount:</strong> {formatCurrency(order.total_amount)}
+                          <span className="text-gray-600">Order Date:</span>
+                          <span className="ml-2 font-medium text-gray-900">
+                            {new Date(order.created_at).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Items:</span>
+                          <span className="ml-2 font-medium text-gray-900">{order.items_count} item(s)</span>
+                        </div>
+                      </div>
+                      
+                      {/* FIXED: Financial Breakdown with proper number formatting */}
+                      <div className="mt-3 p-4 bg-gray-50 rounded-lg">
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-1">Subtotal</div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(order.subtotal)}
+                            </div>
+                          </div>
+                          <div className="text-center border-l border-r border-gray-200">
+                            <div className="text-xs text-gray-500 mb-1">Delivery Fee</div>
+                            <div className="text-sm font-semibold text-blue-600">
+                              {formatCurrency(order.delivery_fee || ((order.total_amount || 0) - (order.subtotal || 0)))}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-1">Total Amount</div>
+                            <div className="text-base font-bold text-green-600">
+                              {formatCurrency(order.total_amount)}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center mt-4 md:mt-0 md:ml-4">
                       <button
                         onClick={() => handleStatusUpdate(order)}
                         disabled={updatingStatus[order.order_id]}
-                        className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-sm font-medium"
                       >
                         {updatingStatus[order.order_id] ? (
                           <>
-                            <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b border-white"></div>
                             <span>Updating...</span>
                           </>
                         ) : (
                           <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             <span>Update Status</span>
@@ -348,28 +421,33 @@ const AllOrdersManagement = () => {
                   </div>
                   
                   {order.delivery_address && (
-                    <div className="mb-3">
-                      <p className="text-xs text-gray-600">
-                        <strong>Address:</strong> {order.delivery_address}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Delivery Address:</span>
+                        <span className="ml-2">{order.delivery_address}</span>
                       </p>
                     </div>
                   )}
                   
                   {order.items && order.items.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-gray-700">Items:</p>
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-medium text-gray-700">Order Items:</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {order.items.map((item, index) => (
-                          <div key={index} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                            <div className="flex justify-between">
-                              <span>{item.quantity}x {item.name}</span>
-                              <span>{formatCurrency(item.price)}</span>
+                          <div key={index} className="bg-white border border-gray-200 p-3 rounded-lg">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="text-sm font-medium text-gray-900">
+                                {item.quantity}x {item.name}
+                              </span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {formatCurrency(item.price * item.quantity)}
+                              </span>
                             </div>
                             {item.selected_variation && (
-                              <p className="text-gray-500 mt-1">Size: {item.selected_variation}</p>
+                              <p className="text-xs text-gray-500">Size: {item.selected_variation}</p>
                             )}
                             {item.special_instructions && (
-                              <p className="text-gray-500 mt-1">Note: {item.special_instructions}</p>
+                              <p className="text-xs text-gray-500 mt-1">Note: {item.special_instructions}</p>
                             )}
                           </div>
                         ))}
@@ -385,8 +463,8 @@ const AllOrdersManagement = () => {
 
       {/* Status Update Modal */}
       {showStatusModal && selectedOrderForUpdate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Update Order Status</h3>
@@ -395,7 +473,7 @@ const AllOrdersManagement = () => {
                     setShowStatusModal(false);
                     setSelectedOrderForUpdate(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -403,15 +481,18 @@ const AllOrdersManagement = () => {
                 </button>
               </div>
               
-              <div className="mb-4">
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-2">
-                  <strong>Order:</strong> #{selectedOrderForUpdate.order_number || selectedOrderForUpdate.order_id}
+                  <span className="font-medium">Order:</span> #{selectedOrderForUpdate.order_number || selectedOrderForUpdate.order_id}
                 </p>
                 <p className="text-sm text-gray-600 mb-2">
-                  <strong>Customer:</strong> {selectedOrderForUpdate.customer_name}
+                  <span className="font-medium">Customer:</span> {selectedOrderForUpdate.customer_name}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Current Status:</strong> {selectedOrderForUpdate.status}
+                  <span className="font-medium">Current Status:</span>{' '}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedOrderForUpdate.status)}`}>
+                    {formatStatus(selectedOrderForUpdate.status)}
+                  </span>
                 </p>
               </div>
               
@@ -432,7 +513,7 @@ const AllOrdersManagement = () => {
                       disabled={updatingStatus[selectedOrderForUpdate.order_id]}
                       className={`p-3 text-sm font-medium rounded-lg border-2 transition-all duration-200 ${
                         selectedOrderForUpdate.status === status.value
-                          ? 'border-orange-500 bg-orange-50'
+                          ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
@@ -444,7 +525,7 @@ const AllOrdersManagement = () => {
                 </div>
               </div>
               
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => {
                     setShowStatusModal(false);
