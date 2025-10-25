@@ -40,6 +40,8 @@
     "test:ci": "npm run test:all && npm run test:e2e"
   },
   "dependencies": {
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.4"

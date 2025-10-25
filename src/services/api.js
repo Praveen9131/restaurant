@@ -273,6 +273,10 @@ export const adminAPI = {
   updateOrderStatus: (data) => {
     return api.post('/UpdateOrderStatus/', data);
   },
+  updateDeliveryFee: (data) => {
+    console.log('AdminAPI: Updating delivery fee with data:', data);
+    return api.post('/update-delivery-fee/', data);
+  },
   // Customer management endpoints (uses same endpoint as orders since customers are extracted from orders)
   getCustomers: async () => {
     console.log('🔍 [API] Calling getCustomers');
@@ -305,6 +309,27 @@ export const adminAPI = {
   createInHouseOrder: (data) => {
     console.log('AdminAPI: Creating in-house order with data:', data);
     return api.post('/adminordercreate/', data);
+  },
+  
+  // Admin Reports APIs
+  getReports: async (params = {}) => {
+    console.log('AdminAPI: Fetching reports with params:', params);
+    return api.get('/adminreports/', { params });
+  },
+  
+  getSevenDayReport: async () => {
+    console.log('AdminAPI: Fetching seven-day report');
+    return api.get('/adminreports/');
+  },
+  
+  getCustomDateReport: async (startDate, endDate) => {
+    console.log('AdminAPI: Fetching custom date report from', startDate, 'to', endDate);
+    return api.get('/adminreports/', { 
+      params: { 
+        start_date: startDate, 
+        end_date: endDate 
+      } 
+    });
   },
 };
 

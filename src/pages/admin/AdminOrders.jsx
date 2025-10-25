@@ -70,6 +70,58 @@ const AdminOrders = () => {
     }
   };
 
+  const handleUpdateDeliveryFee = async () => {
+    try {
+      const orderId = document.getElementById('deliveryFeeOrderId').value.trim();
+      const deliveryFee = parseFloat(document.getElementById('deliveryFeeAmount').value);
+
+      if (!orderId) {
+        alert('Please enter an Order ID or Number');
+        return;
+      }
+
+      if (isNaN(deliveryFee) || deliveryFee < 0) {
+        alert('Please enter a valid delivery fee amount');
+        return;
+      }
+
+      const response = await adminAPI.updateDeliveryFee({
+        order_id: orderId,
+        delivery_fee: deliveryFee,
+      });
+
+      if (response.data.success) {
+        alert(`Delivery fee updated successfully to ₹${deliveryFee}!`);
+        // Clear the form
+        document.getElementById('deliveryFeeOrderId').value = '';
+        document.getElementById('deliveryFeeAmount').value = '';
+        // Refresh orders
+        fetchOrders();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update delivery fee');
+    }
+  };
+
+  const handleQuickUpdateDeliveryFee = async (orderId, deliveryFee) => {
+    try {
+      const response = await adminAPI.updateDeliveryFee({
+        order_id: orderId,
+        delivery_fee: deliveryFee,
+      });
+
+      if (response.data.success) {
+        alert(`Delivery fee updated successfully to ₹${deliveryFee}!`);
+        // Clear the input field
+        document.getElementById(`deliveryFee_${orderId}`).value = '';
+        // Refresh orders
+        fetchOrders();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update delivery fee');
+    }
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
@@ -101,6 +153,27 @@ const AdminOrders = () => {
     return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
 
+  const calculateTax = (subtotal) => {
+    // Tax (GST) is 0% for now
+    return 0;
+  };
+
+  const calculateOrderBreakdown = (order) => {
+    // Use API data if available, otherwise calculate
+    const subtotal = order.subtotal || calculateSubtotal(order.items);
+    const deliveryFee = order.delivery_fee || 0;
+    const tax = calculateTax(subtotal);
+    const calculatedTotal = subtotal + deliveryFee + tax;
+    
+    return {
+      subtotal,
+      deliveryFee,
+      tax,
+      calculatedTotal,
+      apiTotal: order.total_amount
+    };
+  };
+
   const statuses = ['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
 
   return (
@@ -128,6 +201,41 @@ const AdminOrders = () => {
               <p className="text-xs capitalize text-gray-600">{formatStatus(status)}</p>
             </div>
           ))}
+        </div>
+
+        {/* Delivery Fee Management */}
+        <div className="card p-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+          <h3 className="font-bold text-lg mb-4 text-blue-800">Delivery Fee Management</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-gray-700 font-medium mb-2 text-sm">Order ID/Number</label>
+              <input
+                type="text"
+                placeholder="Enter Order ID or Number"
+                className="input-field"
+                id="deliveryFeeOrderId"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-medium mb-2 text-sm">New Delivery Fee (₹)</label>
+              <input
+                type="number"
+                placeholder="Enter delivery fee"
+                className="input-field"
+                id="deliveryFeeAmount"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={handleUpdateDeliveryFee}
+                className="btn-primary w-full"
+              >
+                Update Delivery Fee
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -211,8 +319,22 @@ const AdminOrders = () => {
                     <p className="text-gray-700 font-medium mt-1">{order.customer_name}</p>
                     <p className="text-gray-600 text-sm">{order.customer_phone}</p>
                   </div>
-                  <div className="mt-2 md:mt-0">
-                    <p className="text-2xl font-bold text-primary">₹{Math.round(order.total_amount)}</p>
+                  <div className="mt-2 md:mt-0 text-right">
+                    {(() => {
+                      const breakdown = calculateOrderBreakdown(order);
+                      return (
+                        <div>
+                          <p className="text-2xl font-bold text-primary">₹{Math.round(order.total_amount)}</p>
+                          <div className="text-xs text-gray-500 mt-1">
+                            <div>Subtotal: ₹{Math.round(breakdown.subtotal)}</div>
+                            <div>Delivery: ₹{breakdown.deliveryFee}</div>
+                            {breakdown.tax > 0 && (
+                              <div>Tax: ₹{Math.round(breakdown.tax)}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -275,6 +397,40 @@ const AdminOrders = () => {
                           </option>
                         ))}
                     </select>
+                  </div>
+                </div>
+
+                {/* Quick Delivery Fee Update */}
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mt-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Delivery Fee:</label>
+                    <span className="text-sm font-bold text-blue-600">₹{order.delivery_fee || 0}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="number"
+                      placeholder="New delivery fee"
+                      className="input-field text-sm"
+                      min="0"
+                      step="0.01"
+                      id={`deliveryFee_${order.order_id}`}
+                    />
+                    <button
+                      onClick={() => {
+                        const newFee = parseFloat(document.getElementById(`deliveryFee_${order.order_id}`).value);
+                        if (!isNaN(newFee) && newFee >= 0) {
+                          if (confirm(`Update delivery fee to ₹${newFee}?`)) {
+                            handleQuickUpdateDeliveryFee(order.order_id, newFee);
+                          }
+                        } else {
+                          alert('Please enter a valid delivery fee amount');
+                        }
+                      }}
+                      className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                    >
+                      Update
+                    </button>
                   </div>
                 </div>
               </div>
@@ -456,26 +612,38 @@ const AdminOrders = () => {
                       </svg>
                       Payment Summary
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-gray-700">
-                        <span>Subtotal</span>
-                        <span className="font-medium">₹{Math.round(calculateSubtotal(selectedOrder.items))}</span>
-                      </div>
-                      <div className="flex justify-between text-gray-700">
-                        <span>Delivery Fee</span>
-                        <span className="font-medium">₹50</span>
-                      </div>
-                      {selectedOrder.tax && selectedOrder.tax > 0 && (
-                        <div className="flex justify-between text-gray-700">
-                          <span>Tax</span>
-                          <span className="font-medium">₹{Math.round(selectedOrder.tax)}</span>
+                    {(() => {
+                      const breakdown = calculateOrderBreakdown(selectedOrder);
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-gray-700">
+                            <span>Subtotal ({selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''})</span>
+                            <span className="font-medium">₹{Math.round(breakdown.subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-gray-700">
+                            <span>Delivery Fee</span>
+                            <span className="font-medium">₹{breakdown.deliveryFee}</span>
+                          </div>
+                          {breakdown.tax > 0 && (
+                            <div className="flex justify-between text-gray-700">
+                              <span>Tax (GST)</span>
+                              <span className="font-medium">₹{Math.round(breakdown.tax)}</span>
+                            </div>
+                          )}
+                          <div className="border-t-2 border-orange-300 pt-3 flex justify-between items-center">
+                            <span className="text-lg font-bold text-gray-900">Total Amount</span>
+                            <div className="text-right">
+                              <span className="text-2xl font-bold text-orange-600">₹{Math.round(breakdown.apiTotal)}</span>
+                              {Math.abs(breakdown.calculatedTotal - breakdown.apiTotal) > 0.01 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  (Calc: ₹{Math.round(breakdown.calculatedTotal)})
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      <div className="border-t-2 border-orange-300 pt-3 flex justify-between items-center">
-                        <span className="text-lg font-bold text-gray-900">Total Amount</span>
-                        <span className="text-2xl font-bold text-orange-600">₹{Math.round(selectedOrder.total_amount)}</span>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Quick Actions */}

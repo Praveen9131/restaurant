@@ -12,6 +12,7 @@ const Orders = () => {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [autoReloading, setAutoReloading] = useState(false);
+  const [nextRefresh, setNextRefresh] = useState(null);
 
   const fetchOrders = useCallback(async (isAutoReload = false) => {
     try {
@@ -30,6 +31,7 @@ const Orders = () => {
       
       setOrders(response.data.orders || []);
       setLastUpdated(new Date());
+      setNextRefresh(new Date(Date.now() + 15000)); // Set next refresh time
       setError(''); // Clear any previous errors on successful fetch
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to fetch orders');
@@ -39,6 +41,7 @@ const Orders = () => {
     }
   }, [user]);
 
+  // Initial data fetch
   useEffect(() => {
     // Wait for auth to finish loading before checking user
     if (authLoading) {
@@ -51,17 +54,40 @@ const Orders = () => {
     }
 
     fetchOrders();
+  }, [user, navigate, authLoading, fetchOrders]);
+
+  // Auto-refresh interval - separate useEffect for better control
+  useEffect(() => {
+    if (authLoading || !user) {
+      return;
+    }
 
     // Set up auto-reload every 15 seconds
     const interval = setInterval(() => {
       fetchOrders(true); // Pass true to indicate this is an auto-reload
     }, 15000); // 15 seconds
 
-    // Cleanup interval on component unmount
+    // Cleanup interval on component unmount or when dependencies change
     return () => {
       clearInterval(interval);
     };
-  }, [user, navigate, authLoading, fetchOrders]);
+  }, [user, authLoading, fetchOrders]);
+
+  // Countdown timer for next refresh
+  useEffect(() => {
+    if (!nextRefresh) return;
+
+    const timer = setInterval(() => {
+      const now = new Date();
+      const timeLeft = Math.max(0, nextRefresh.getTime() - now.getTime());
+      
+      if (timeLeft === 0) {
+        setNextRefresh(new Date(Date.now() + 15000));
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [nextRefresh]);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -99,6 +125,11 @@ const Orders = () => {
                 {lastUpdated && (
                   <div className="text-sm text-gray-500">
                     Last updated: {lastUpdated.toLocaleTimeString()}
+                    {nextRefresh && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        Next refresh in: {Math.ceil((nextRefresh.getTime() - new Date().getTime()) / 1000)}s
+                      </div>
+                    )}
                   </div>
                 )}
                 <button
@@ -162,6 +193,27 @@ const Orders = () => {
                 </div>
 
                 <div className="border-t pt-4">
+                  {/* Special message for cancelled orders */}
+                  {order.status === 'cancelled' && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-red-800">
+                            Order Cancelled
+                          </h3>
+                          <div className="mt-1 text-sm text-red-700">
+                            <p>Sorry, delivery area is not serviceable. Please contact us for alternative arrangements.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="mb-4">
                     <p className="text-gray-600 text-sm mb-1">
                       <strong>Delivery Address:</strong> {order.delivery_address}
@@ -193,17 +245,30 @@ const Orders = () => {
                             )}
                             <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                           </div>
-                          <p className="font-medium">₹{Math.round(item.price)}</p>
+                          <p className="font-medium">₹{Math.round(item.subtotal || (item.price * item.quantity))}</p>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <span className="text-gray-700 font-medium">Total Amount</span>
-                    <span className="text-2xl font-bold text-primary">
-                      ₹{Math.round(order.total_amount)}
-                    </span>
+                  {/* Order Summary */}
+                  <div className="pt-3 border-t">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal ({order.items_count} item{order.items_count !== 1 ? 's' : ''})</span>
+                        <span className="font-medium">₹{Math.round(order.subtotal || 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Delivery Fee</span>
+                        <span className="font-medium">₹{order.delivery_fee || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="text-gray-700 font-medium text-lg">Total Amount</span>
+                        <span className="text-2xl font-bold text-primary">
+                          ₹{Math.round(order.total_amount || 0)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

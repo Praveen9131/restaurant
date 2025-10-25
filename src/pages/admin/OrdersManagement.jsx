@@ -184,6 +184,19 @@ const OrdersManagement = () => {
     }
   }, [showSuccess, showError, fetchOrders]);
 
+  const updateDeliveryFee = useCallback(async (orderId, deliveryFee) => {
+    try {
+      const response = await adminAPI.updateDeliveryFee({
+        order_id: orderId,
+        delivery_fee: deliveryFee,
+      });
+      showSuccess(`Delivery fee updated successfully to ₹${deliveryFee}!`);
+      fetchOrders();
+    } catch (error) {
+      showError(error.response?.data?.message || 'Failed to update delivery fee');
+    }
+  }, [showSuccess, showError, fetchOrders]);
+
   const getStatusColor = useCallback((status) => {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -330,6 +343,12 @@ const OrdersManagement = () => {
                   Items
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Subtotal
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Delivery Fee
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -359,6 +378,40 @@ const OrdersManagement = () => {
                     {order.items?.length || 0} items
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    ₹{Math.round(order.subtotal || 0)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-blue-600">
+                        ₹{order.delivery_fee || 0}
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="New fee"
+                        className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        min="0"
+                        step="0.01"
+                        id={`deliveryFee_${order.order_id}`}
+                      />
+                      <button
+                        onClick={() => {
+                          const newFee = parseFloat(document.getElementById(`deliveryFee_${order.order_id}`).value);
+                          if (!isNaN(newFee) && newFee >= 0) {
+                            if (confirm(`Update delivery fee to ₹${newFee}?`)) {
+                              updateDeliveryFee(order.order_id, newFee);
+                              document.getElementById(`deliveryFee_${order.order_id}`).value = '';
+                            }
+                          } else {
+                            showError('Please enter a valid delivery fee amount');
+                          }
+                        }}
+                        className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                      >
+                        Update
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     ₹{Math.round(order.total_amount || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -367,7 +420,7 @@ const OrdersManagement = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(order.created_at).toLocaleDateString()}
+                    {new Date(order.order_date || order.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button

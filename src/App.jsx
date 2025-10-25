@@ -39,6 +39,7 @@ import CustomerManagement from './pages/admin/CustomerManagement';
 import CustomerDetailsPage from './pages/admin/CustomerDetailsPage';
 import InquiriesManagement from './pages/admin/InquiriesManagement';
 import InhouseManagement from './pages/admin/InhouseManagement';
+import AdminReports from './pages/admin/AdminReports';
 import APIDebug from './pages/admin/APIDebug';
 import AllOrdersManagement from './pages/admin/AllOrdersManagement';
 
@@ -181,6 +182,7 @@ function App() {
               <Route path="customers" element={<CustomerManagement />} />
               <Route path="customers/:customerId" element={<CustomerDetailsPage />} />
               <Route path="inquiries" element={<InquiriesManagement />} />
+              <Route path="reports" element={<AdminReports />} />
               <Route path="inhouse" element={<InhouseManagement />} />
               <Route path="all-orders" element={<AllOrdersManagement />} />
             </Route>
