@@ -7,6 +7,10 @@ const CategoryManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     description: ''
@@ -65,24 +69,49 @@ const CategoryManagement = () => {
   };
 
   const handleEdit = (category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description || ''
-    });
-    setShowModal(true);
+    setCategoryToEdit(category);
+    setShowEditDialog(true);
   };
 
-  const handleDelete = async (categoryId) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
+  const handleEditConfirm = () => {
+    setEditingCategory(categoryToEdit);
+    setFormData({
+      name: categoryToEdit.name,
+      description: categoryToEdit.description || ''
+    });
+    setShowModal(true);
+    setShowEditDialog(false);
+    setCategoryToEdit(null);
+  };
+
+  const handleDelete = (categoryId) => {
+    const category = categories.find(c => c.id === categoryId);
+    setCategoryToDelete(category);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (categoryToDelete) {
       try {
-        await categoryAPI.delete(categoryId);
+        await categoryAPI.delete(categoryToDelete.id);
         showSuccess('Category deleted successfully!');
         fetchCategories();
       } catch (error) {
         showError(error.response?.data?.message || 'Failed to delete category');
       }
     }
+    setShowDeleteDialog(false);
+    setCategoryToDelete(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+    setCategoryToDelete(null);
+  };
+
+  const handleEditCancel = () => {
+    setShowEditDialog(false);
+    setCategoryToEdit(null);
   };
 
   const openModal = () => {
@@ -233,6 +262,75 @@ const CategoryManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Confirmation Dialog */}
+      {showEditDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-all">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-full mb-4">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-swiggy font-bold text-gray-800 text-center mb-2">
+              Edit Category
+            </h3>
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to edit <span className="font-semibold">"{categoryToEdit?.name}"</span>?
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleEditCancel}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-swiggy font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditConfirm}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-swiggy font-semibold py-3 px-4 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Yes, Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-all">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-swiggy font-bold text-gray-800 text-center mb-2">
+              Delete Category
+            </h3>
+            <p className="text-gray-600 text-center mb-4">
+              Are you sure you want to delete <span className="font-semibold">"{categoryToDelete?.name}"</span>?
+            </p>
+            <p className="text-red-600 text-sm text-center mb-6 font-medium">
+              This action cannot be undone!
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleDeleteCancel}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-swiggy font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-swiggy font-semibold py-3 px-4 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Yes, Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
