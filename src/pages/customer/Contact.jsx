@@ -192,8 +192,18 @@ const Contact = () => {
               <h2 className="text-2xl font-display font-bold mb-6">Send us a Message</h2>
 
               {success && (
-                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-                  Thank you for your message! We will get back to you soon.
+                <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-400 text-green-800 px-6 py-4 rounded-xl mb-6 animate-fade-in">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-green-800">Message sent successfully!</p>
+                      <p className="text-sm text-green-700 mt-1">Thank you for contacting us. We'll get back to you soon.</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -315,7 +325,7 @@ const Contact = () => {
           <div className="mt-16">
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
               <div className="p-6 border-b border-gray-100">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -327,10 +337,10 @@ const Contact = () => {
                       <p className="text-gray-600 font-sans">{contactInfo.address}</p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col space-y-2 w-full md:w-auto md:flex-row md:space-y-0 md:space-x-2">
                     <button 
                       onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(contactInfo.address)}`, '_blank')}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300 flex items-center space-x-2"
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300 flex items-center justify-center space-x-2 w-full md:w-auto"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9l-5 4.87L18.18 22 12 18.77 5.82 22 7 13.87 2 9l6.91-.74L12 2zm0 3.84L10.5 9l1.5 1.16L13.5 9 12 5.84z"/>
@@ -339,7 +349,7 @@ const Contact = () => {
                     </button>
                     <button 
                       onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${contactInfo.coordinates.lat},${contactInfo.coordinates.lng}`, '_blank')}
-                      className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300"
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300 w-full md:w-auto"
                     >
                       View Map
                     </button>
