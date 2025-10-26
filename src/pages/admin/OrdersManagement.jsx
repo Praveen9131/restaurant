@@ -11,6 +11,10 @@ const OrdersManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusCounts, setStatusCounts] = useState({});
   const { showSuccess, showError } = useNotification();
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ordersPerPage] = useState(20);
 
   // In-House Order states
   const [showInHouseModal, setShowInHouseModal] = useState(false);
@@ -211,7 +215,17 @@ const OrdersManagement = () => {
     }
 
     setFilteredOrders(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [orders, statusFilter, searchTerm]);
+
+  // Pagination calculations
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const updateOrderStatus = useCallback(async (orderId, newStatus) => {
     try {
@@ -397,7 +411,7 @@ const OrdersManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredOrders.map((order) => (
+              {currentOrders.map((order) => (
                 <tr key={order.order_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     #{order.order_number || order.order_id}
@@ -553,6 +567,72 @@ const OrdersManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredOrders.length > ordersPerPage && (
+        <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700">
+              Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
+              <span className="font-medium">
+                {Math.min(indexOfLastOrder, filteredOrders.length)}
+              </span>{' '}
+              of <span className="font-medium">{filteredOrders.length}</span> orders
+            </span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => {
+                  // Show first page, last page, current page, and pages around current
+                  return (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - currentPage) <= 1
+                  );
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis if needed
+                  const showEllipsis = array[index + 1] - page > 1;
+                  return (
+                    <React.Fragment key={page}>
+                      <button
+                        onClick={() => paginate(page)}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          currentPage === page
+                            ? 'bg-orange-500 text-white'
+                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                      {showEllipsis && (
+                        <span className="px-2 text-gray-500">...</span>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+            
+            <button
+              onClick={() => paginate(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Order Detail Modal */}
       {selectedOrder && (

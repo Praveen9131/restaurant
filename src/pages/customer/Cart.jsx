@@ -1,15 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 
 const Cart = () => {
   const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart, getBillingBreakdown } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { showError } = useNotification();
 
   const handleCheckout = () => {
     if (!user) {
-      alert('Please login to proceed with checkout');
+      showError('Please login to proceed with checkout');
       navigate('/login');
       return;
     }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { orderAPI } from '../../services/api';
+import SuccessDialog from '../../components/common/SuccessDialog';
 
 const Checkout = () => {
   const { cart, getCartTotal, clearCart, getBillingBreakdown } = useCart();
@@ -15,6 +16,8 @@ const Checkout = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [orderNumber, setOrderNumber] = useState('');
 
   const handleChange = (e) => {
     setFormData({
@@ -62,8 +65,9 @@ const Checkout = () => {
       
       if (response.data.success) {
         clearCart();
-        alert(`Order placed successfully! Order Number: ${response.data.order_number}`);
-        navigate('/orders');
+        setOrderNumber(response.data.order_number);
+        setShowSuccessDialog(true);
+        setLoading(false);
       } else {
         // Handle specific error cases
         if (response.data.error && response.data.error.includes('menu items not found')) {
@@ -79,11 +83,7 @@ const Checkout = () => {
     }
   };
 
-  if (cart.length === 0) {
-    navigate('/cart');
-    return null;
-  }
-
+  // Check if user is logged in
   if (!user) {
     navigate('/login');
     return null;
@@ -265,6 +265,16 @@ const Checkout = () => {
           </div>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <SuccessDialog 
+        show={showSuccessDialog}
+        orderNumber={orderNumber}
+        onClose={() => {
+          setShowSuccessDialog(false);
+          navigate('/orders');
+        }}
+      />
     </div>
   );
 };
