@@ -284,7 +284,7 @@ const OrdersManagement = () => {
   }
 
   return (
-    <div className="space-y-6 w-full overflow-x-hidden">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
