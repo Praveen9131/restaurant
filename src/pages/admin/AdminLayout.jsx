@@ -119,11 +119,11 @@ const AdminLayout = () => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${
+      <div className={`fixed inset-y-0 left-0 z-30 w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
         {/* Restaurant Branding Header */}
-        <div className="relative p-6 bg-[#FFF8F0] border-b border-orange-200">
+        <div className="relative p-6 bg-[#FFF8F0] border-b border-orange-200 flex-shrink-0">
           {/* Mobile Close Button */}
           <button
             onClick={() => setSidebarOpen(false)}
@@ -160,8 +160,8 @@ const AdminLayout = () => {
           </div>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex-1 px-6 py-8">
+        {/* Navigation Menu - Scrollable */}
+        <nav className="flex-1 overflow-y-auto px-6 py-8 min-h-0">
           <div className="space-y-3">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
@@ -193,8 +193,8 @@ const AdminLayout = () => {
           </div>
         </nav>
 
-        {/* Admin Profile Section */}
-        <div className="border-t border-gray-200 bg-[#F5F5F5] p-6">
+        {/* Admin Profile Section - Fixed at Bottom */}
+        <div className="border-t border-gray-200 bg-[#F5F5F5] p-6 flex-shrink-0">
           <div className="flex items-center space-x-3 mb-4">
             <div className="w-12 h-12 bg-gradient-to-br from-[#FC8019] to-orange-600 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
               <span className="text-white text-sm font-bold">
