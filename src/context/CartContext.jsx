@@ -128,8 +128,8 @@ export const CartProvider = ({ children }) => {
   };
 
   const getDeliveryFee = () => {
-    // Delivery fee is ₹50 for all orders
-    return 50;
+    // Delivery fee is removed
+    return 0;
   };
 
   const getServiceFee = () => {
@@ -144,19 +144,19 @@ export const CartProvider = ({ children }) => {
 
   const getTotalWithFees = () => {
     const subtotal = getCartTotal();
-    const deliveryFee = getDeliveryFee();
+    // Delivery fee is removed
     const serviceFee = getServiceFee();
     const tax = getTax();
-    return subtotal + deliveryFee + serviceFee + tax;
+    return subtotal + serviceFee + tax;
   };
 
   const getBillingBreakdown = () => {
     return {
       subtotal: getCartTotal(),
-      deliveryFee: getDeliveryFee(),
+      deliveryFee: 0, // Delivery fee is removed
       serviceFee: getServiceFee(),
       tax: getTax(),
-      total: getTotalWithFees(),
+      total: getTotalWithFees(), // This now excludes delivery fee
       itemCount: cart.length,
       totalQuantity: getCartCount()
     };

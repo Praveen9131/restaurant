@@ -144,10 +144,6 @@ const Cart = () => {
                       <span className="text-gray-600">Subtotal ({billing.itemCount} item{billing.itemCount !== 1 ? 's' : ''})</span>
                       <span className="font-medium">₹{Math.round(billing.subtotal)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="font-medium">₹{billing.deliveryFee}</span>
-                    </div>
                     {billing.serviceFee > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Service Fee</span>

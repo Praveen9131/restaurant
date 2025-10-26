@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
 
 const ForgotPassword = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -15,8 +16,13 @@ const ForgotPassword = () => {
     setMessage('');
 
     try {
+      console.log('🔵 Calling forgot password API with email:', email);
       const response = await authAPI.forgotPassword(email);
-      setMessage(response.data.message || 'Password reset email sent successfully');
+      console.log('🔵 Forgot password response:', response.data);
+      
+      // The API sends an email with a reset link containing the token
+      // User needs to check their email and click the link
+      setMessage(response.data.message || 'Password reset email sent successfully. Please check your email and click the reset link.');
     } catch (error) {
       console.error('Forgot password error:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to send reset email';

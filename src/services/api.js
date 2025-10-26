@@ -200,6 +200,7 @@ export const authAPI = {
     return api.post('/forgot-password/', { email });
   },
   resetPassword: (data) => {
+    console.log('🔵 [API] Calling reset-password endpoint with data:', { ...data, token: data.token?.substring(0, 10) + '...' });
     return api.post('/reset-password/', data);
   },
   changePassword: (data) => {
