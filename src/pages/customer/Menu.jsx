@@ -357,8 +357,8 @@ const Menu = () => {
                 </div>
               </div>
 
-              {/* Two Toggle Buttons */}
-              <div className="flex items-center space-x-4">
+              {/* Two Toggle Buttons - Desktop Only */}
+              <div className="hidden md:flex items-center space-x-4">
                 {/* Vegetarian Toggle */}
                 <div className="flex items-center space-x-3">
                   <label className="flex items-center cursor-pointer">
