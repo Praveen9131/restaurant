@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     setItem: (key, value) => {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          safeLocalStorage.setItem(key, value);
+          localStorage.setItem(key, value);
         }
       } catch (error) {
         console.error('Error setting localStorage:', error);
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     removeItem: (key) => {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          safeLocalStorage.removeItem(key);
+          localStorage.removeItem(key);
         }
       } catch (error) {
         console.error('Error removing from localStorage:', error);

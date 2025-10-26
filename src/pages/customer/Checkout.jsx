@@ -217,12 +217,6 @@ const Checkout = () => {
                       <span className="font-medium">₹{Math.round(billing.subtotal)}</span>
                     </div>
                     
-                    {/* Delivery Fee */}
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="font-medium">₹{billing.deliveryFee}</span>
-                    </div>
-                    
                     {/* Service Fee (if applicable) */}
                     {billing.serviceFee > 0 && (
                       <div className="flex justify-between">

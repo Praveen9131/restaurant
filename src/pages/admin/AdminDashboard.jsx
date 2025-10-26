@@ -90,7 +90,7 @@ const AdminDashboard = () => {
           </svg>
         ),
         color: 'bg-indigo-500',
-        link: '/admin/inhouse'
+        link: ''
       },
       {
         title: 'Today\'s Revenue',
@@ -162,24 +162,32 @@ const AdminDashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        {statCards.map((stat, index) => (
-          <Link
-            key={index}
-            to={stat.link}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              </div>
-              <div className={`${stat.color} p-3 rounded-lg text-white`}>
-                {stat.icon}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 grid-flow-row auto-rows-fr">
+        {statCards.map((stat, index) => {
+          const CardContent = () => (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200 h-full">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+                <div className={`${stat.color} p-3 rounded-lg text-white`}>
+                  {stat.icon}
+                </div>
               </div>
             </div>
-          </Link>
-        ))}
+          );
+
+          return stat.link ? (
+            <Link key={index} to={stat.link} className="h-full">
+              <CardContent />
+            </Link>
+          ) : (
+            <div key={index} className="h-full">
+              <CardContent />
+            </div>
+          );
+        })}
       </div>
 
       {/* Order Status Overview */}

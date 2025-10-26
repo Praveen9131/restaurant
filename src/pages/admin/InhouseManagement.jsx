@@ -13,6 +13,44 @@ const InhouseManagement = () => {
   const [selectedSizes, setSelectedSizes] = useState({}); // Track selected sizes for each item
   const { showSuccess, showError } = useNotification();
 
+  // Load selected items from localStorage on mount
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const storedItems = localStorage.getItem('dineInCart');
+        const storedSizes = localStorage.getItem('dineInCartSizes');
+        if (storedItems) {
+          setSelectedItems(JSON.parse(storedItems));
+        }
+        if (storedSizes) {
+          setSelectedSizes(JSON.parse(storedSizes));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading dine-in cart from localStorage:', error);
+    }
+  }, []);
+
+  // Save selected items to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (selectedItems.length > 0) {
+          localStorage.setItem('dineInCart', JSON.stringify(selectedItems));
+        } else {
+          localStorage.removeItem('dineInCart');
+        }
+        if (Object.keys(selectedSizes).length > 0) {
+          localStorage.setItem('dineInCartSizes', JSON.stringify(selectedSizes));
+        } else {
+          localStorage.removeItem('dineInCartSizes');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving dine-in cart to localStorage:', error);
+    }
+  }, [selectedItems, selectedSizes]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -132,7 +170,17 @@ const InhouseManagement = () => {
 
   const clearCart = useCallback(() => {
     setSelectedItems([]);
+    setSelectedSizes({});
     setShowBill(false);
+    // Clear localStorage
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('dineInCart');
+        localStorage.removeItem('dineInCartSizes');
+      }
+    } catch (error) {
+      console.error('Error clearing dine-in cart from localStorage:', error);
+    }
     showSuccess('Cart cleared');
   }, []); // Remove showSuccess dependency to prevent re-renders
 
@@ -287,27 +335,17 @@ const InhouseManagement = () => {
           <h1 className="text-2xl font-swiggy font-bold text-gray-900">Inhouse Order Management</h1>
           <p className="text-gray-600 mt-1">Select items and create inhouse orders</p>
           
-          {/* Statistics */}
-          <div className="flex space-x-6 mt-4">
-            <div className="flex items-center space-x-2 text-sm">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-gray-600">
-                <span className="font-semibold text-green-600">{menuItems.filter(item => item.is_available).length}</span> Available
-              </span>
+          {/* Statistics - Only Selected Items */}
+          {selectedItems.length > 0 && (
+            <div className="flex space-x-6 mt-4">
+              <div className="flex items-center space-x-2 text-sm">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span className="text-gray-600">
+                  <span className="font-semibold text-orange-600">{selectedItems.length}</span> Selected Items
+                </span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2 text-sm">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-gray-600">
-                <span className="font-semibold text-red-600">{menuItems.filter(item => !item.is_available).length}</span> Unavailable
-              </span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm">
-              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-              <span className="text-gray-600">
-                <span className="font-semibold text-orange-600">{selectedItems.length}</span> Selected Items
-              </span>
-            </div>
-          </div>
+          )}
         </div>
         
             {/* Cart Actions */}
@@ -344,10 +382,15 @@ const InhouseManagement = () => {
                     onClick={() => setShowBill(!showBill)}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-swiggy font-semibold px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span>View Bill ({selectedItems.length})</span>
+                    <span className="relative">
+                      View Bill
+                      <span className="ml-1 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                        {selectedItems.reduce((sum, item) => sum + item.quantity, 0)}
+                      </span>
+                    </span>
                   </button>
                   <button
                     onClick={clearCart}

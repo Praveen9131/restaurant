@@ -159,7 +159,7 @@ const Dashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {recentOrders.map((order) => (
-                    <tr key={order.order_id} className="hover:bg-gray-50">
+                    <tr key={order.order_id} className="hover:bg-gray-50 cursor-default">
                       <td className="px-4 py-3 text-sm font-medium">
                         {order.order_number}
                       </td>

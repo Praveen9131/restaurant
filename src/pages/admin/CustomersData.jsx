@@ -118,6 +118,42 @@ const CustomersData = () => {
     });
   };
 
+  const exportToExcel = () => {
+    // Create CSV content
+    const headers = ['ID', 'Name', 'Email', 'Phone', 'Address', 'Order Count', 'Total Spent', 'Average Order Value', 'Registration Date'];
+    const rows = filteredAndSortedCustomers.map(customer => [
+      customer.customer_id || customer.id || '',
+      customer.name || '',
+      customer.email || '',
+      customer.phone || '',
+      customer.address || '',
+      customer.order_count || 0,
+      customer.total_spent || 0,
+      customer.average_order_value || 0,
+      customer.created_at ? new Date(customer.created_at).toLocaleDateString('en-IN') : ''
+    ]);
+
+    // Convert to CSV format
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `customers_data_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getStatusBadge = (orderCount) => {
     if (orderCount === 0) {
       return (
@@ -289,6 +325,19 @@ const CustomersData = () => {
               <option value="total_spent">Total Spent</option>
               <option value="average_order_value">Average Order Value</option>
             </select>
+          </div>
+
+          {/* Export Button */}
+          <div className="flex items-end">
+            <button
+              onClick={exportToExcel}
+              className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 font-medium"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Export to Excel</span>
+            </button>
           </div>
 
           {/* Sort Order */}

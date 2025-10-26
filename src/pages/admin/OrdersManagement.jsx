@@ -19,6 +19,35 @@ const OrdersManagement = () => {
   const [loadingItems, setLoadingItems] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
 
+  // Load selected items from localStorage on mount
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const storedItems = localStorage.getItem('dineInCart');
+        if (storedItems) {
+          setSelectedItems(JSON.parse(storedItems));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading dine-in cart from localStorage:', error);
+    }
+  }, []);
+
+  // Save selected items to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (selectedItems.length > 0) {
+          localStorage.setItem('dineInCart', JSON.stringify(selectedItems));
+        } else {
+          localStorage.removeItem('dineInCart');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving dine-in cart to localStorage:', error);
+    }
+  }, [selectedItems]);
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -85,6 +114,14 @@ const OrdersManagement = () => {
       showSuccess('Dine in order created successfully!');
       setShowInHouseModal(false);
       setSelectedItems([]);
+      // Clear localStorage after successful order creation
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.removeItem('dineInCart');
+        }
+      } catch (error) {
+        console.error('Error clearing dine-in cart from localStorage:', error);
+      }
       fetchOrders(); // Refresh orders list
     } catch (error) {
       showError('Failed to create dine in order: ' + (error.response?.data?.message || error.message));
@@ -269,18 +306,6 @@ const OrdersManagement = () => {
           </div>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={() => {
-              setShowInHouseModal(true);
-              fetchAvailableItems();
-            }}
-            className="bg-green-500 hover:bg-green-600 text-white font-swiggy font-semibold px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <span>Inhouse</span>
-          </button>
           <button
             onClick={fetchOrders}
             className="bg-orange-500 hover:bg-orange-600 text-white font-swiggy font-semibold px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2"
@@ -638,12 +663,25 @@ const OrdersManagement = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Create Dine In Order</h2>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Dine In Order</h2>
+                  <p className="text-gray-600 mb-4">Select items and create inhouse orders</p>
+                  
+                  {/* Status Indicator - Only Selected Items */}
+                  {selectedItems.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600">
+                        <span className="font-semibold text-orange-600">{selectedItems.length}</span> Selected Items
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     setShowInHouseModal(false);
-                    setSelectedItems([]);
+                    // Don't clear selectedItems - let localStorage handle persistence
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -787,14 +825,30 @@ const OrdersManagement = () => {
                   Total: ₹{calculateTotal().toFixed(2)}
                 </div>
                 <div className="flex space-x-3">
+                  {selectedItems.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Clear all items from cart?')) {
+                          setSelectedItems([]);
+                          localStorage.removeItem('dineInCart');
+                        }
+                      }}
+                      className="px-4 py-2 text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors flex items-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Clear Cart</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setShowInHouseModal(false);
-                      setSelectedItems([]);
+                      // Don't clear selectedItems - let localStorage handle persistence
                     }}
                     className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    Close
                   </button>
                   <button
                     onClick={handleCreateInHouseOrder}

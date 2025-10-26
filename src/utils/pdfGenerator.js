@@ -22,20 +22,33 @@ export const generateReportHTML = (title, report) => {
           line-height: 1.6;
           color: #333;
           background: white;
-          padding: 20px;
+          padding: 40px 20px 40px 20px;
+          margin: 0;
         }
         
         .report-container {
           max-width: 100%;
           margin: 0 auto;
           background: white;
+          padding-top: 20px;
+          padding-bottom: 40px;
         }
         
         .header {
+          position: relative;
           text-align: center;
           margin-bottom: 30px;
           border-bottom: 3px solid #FC8019;
           padding-bottom: 20px;
+        }
+        
+        .header-logo {
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 60px;
+          width: auto;
+          max-width: 200px;
         }
         
         .header h1 {
@@ -74,11 +87,12 @@ export const generateReportHTML = (title, report) => {
         }
         
         .summary-card {
-          background: #f8f9fa;
-          border: 1px solid #e9ecef;
+          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+          border: 2px solid #FC8019;
           border-radius: 8px;
           padding: 20px;
           text-align: center;
+          box-shadow: 0 2px 4px rgba(252, 128, 25, 0.1);
         }
         
         .summary-card .label {
@@ -105,10 +119,11 @@ export const generateReportHTML = (title, report) => {
           border-collapse: collapse;
           margin-bottom: 20px;
           font-size: 12px;
+          border: 1px solid #ddd;
         }
         
         th {
-          background: #3B82F6;
+          background: linear-gradient(135deg, #FC8019 0%, #e6690a 100%);
           color: white;
           padding: 12px 8px;
           text-align: left;
@@ -116,20 +131,21 @@ export const generateReportHTML = (title, report) => {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          border: 1px solid #FC8019;
         }
         
         td {
           padding: 10px 8px;
-          border-bottom: 1px solid #e9ecef;
+          border: 1px solid #e9ecef;
           vertical-align: top;
         }
         
         tr:nth-child(even) {
-          background: #f8f9fa;
+          background: #fff8f3;
         }
         
-        tr:hover {
-          background: #e3f2fd;
+        tr:nth-child(odd) {
+          background: #ffffff;
         }
         
         .number {
@@ -163,7 +179,7 @@ export const generateReportHTML = (title, report) => {
         }
         
         .totals-row td {
-          border-bottom: none;
+          border: 1px solid #FC8019 !important;
           padding: 15px 8px;
         }
         
@@ -282,6 +298,12 @@ export const generateReportHTML = (title, report) => {
                     <td class="number currency">₹${day.revenue}</td>
                   </tr>
                 `).join('')}
+                <tr class="totals-row">
+                  <td><strong>Total</strong></td>
+                  <td><strong>Total</strong></td>
+                  <td class="number"><strong>${sales_trend.reduce((sum, day) => sum + (day.orders || 0), 0)}</strong></td>
+                  <td class="number"><strong>₹${sales_trend.reduce((sum, day) => sum + (day.revenue || 0), 0)}</strong></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -311,6 +333,13 @@ export const generateReportHTML = (title, report) => {
                     <td class="number currency">₹${item.revenue}</td>
                   </tr>
                 `).join('')}
+                <tr class="totals-row">
+                  <td><strong>Total</strong></td>
+                  <td><strong>Total</strong></td>
+                  <td><strong>Total</strong></td>
+                  <td class="number"><strong>${top_selling_items.reduce((sum, item) => sum + (item.quantity_sold || 0), 0)}</strong></td>
+                  <td class="number"><strong>₹${top_selling_items.reduce((sum, item) => sum + (item.revenue || 0), 0)}</strong></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -340,6 +369,13 @@ export const generateReportHTML = (title, report) => {
                     <td class="number currency">₹${category.total_revenue}</td>
                   </tr>
                 `).join('')}
+                <tr class="totals-row">
+                  <td><strong>Total</strong></td>
+                  <td><strong>Total</strong></td>
+                  <td class="number"><strong>${top_categories.reduce((sum, category) => sum + (category.total_orders || 0), 0)}</strong></td>
+                  <td class="number"><strong>${top_categories.reduce((sum, category) => sum + (category.total_items_sold || 0), 0)}</strong></td>
+                  <td class="number"><strong>₹${top_categories.reduce((sum, category) => sum + (category.total_revenue || 0), 0)}</strong></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -365,7 +401,7 @@ export const generateReportHTML = (title, report) => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${report.detailed_orders.slice(0, 30).map(order => {
+                  ${report.detailed_orders.map(order => {
                     const subtotal = parseFloat(order.subtotal) || 0;
                     const totalAmount = parseFloat(order.total_amount) || 0;
                     const calculatedDeliveryFee = totalAmount - subtotal;
@@ -376,11 +412,7 @@ export const generateReportHTML = (title, report) => {
                         <td>${order.customer_name || 'N/A'}</td>
                         <td>${order.order_date || 'N/A'}</td>
                         <td>${order.order_type || 'N/A'}</td>
-                        <td>
-                          <span class="status-badge status-${order.status || 'pending'}">
-                            ${(order.status || 'pending').toUpperCase()}
-                          </span>
-                        </td>
+                        <td>${(order.status || 'pending').toUpperCase()}</td>
                         <td class="number">${order.items_count || 0}</td>
                         <td class="number currency">₹${subtotal}</td>
                         <td class="number currency">₹${calculatedDeliveryFee.toFixed(2)}</td>

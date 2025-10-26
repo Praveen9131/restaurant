@@ -21,6 +21,8 @@ const AdminReports = () => {
   const [expandedOrders, setExpandedOrders] = useState(new Set());
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ordersPerPage] = useState(20);
 
   // Redirect if not admin
   useEffect(() => {
@@ -208,25 +210,138 @@ const AdminReports = () => {
   const generateReportCSV = () => {
     if (!reportData?.report) return '';
     
-    const { summary, sales_trend, top_selling_items, top_categories } = reportData.report;
+    const { summary, sales_trend, top_selling_items, top_categories, order_type_analysis, detailed_orders } = reportData.report;
     
-    let csv = 'Report Data\n\n';
-    csv += 'SUMMARY\n';
-    csv += `Total Orders,${summary.total_orders}\n`;
-    csv += `Total Revenue,${summary.total_revenue}\n`;
-    csv += `Average Order Value,${summary.average_order_value}\n\n`;
+    let csv = 'SEA SIDE BAKE - RESTAURANT REPORT\n\n';
     
-    csv += 'SALES TREND\n';
+    // Report Period - only include if exists
+    if (summary?.report_period?.start_date && summary?.report_period?.end_date) {
+      csv += `Report Period: ${summary.report_period.start_date} to ${summary.report_period.end_date} (${summary.report_period.days} days)\n`;
+    }
+    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    if (reportData.revenue_criteria) {
+      csv += `Revenue Criteria: ${reportData.revenue_criteria}\n`;
+    }
+    csv += '\n';
+    
+    // SUMMARY - only include if exists
+    if (summary && (summary.total_orders || summary.total_revenue || summary.average_order_value)) {
+      csv += 'SUMMARY\n';
+      if (summary.total_orders) csv += `Total Orders,${summary.total_orders}\n`;
+      if (summary.total_revenue) csv += `Total Revenue,${summary.total_revenue}\n`;
+      if (summary.average_order_value) csv += `Average Order Value,${summary.average_order_value}\n`;
+      csv += '\n';
+    }
+    
+    // Order Status Breakdown - only include if exists
+    if (summary?.status_breakdown && Object.keys(summary.status_breakdown).length > 0) {
+      csv += 'ORDER STATUS BREAKDOWN\n';
+      csv += 'Status,Count\n';
+      Object.entries(summary.status_breakdown).forEach(([status, count]) => {
+        if (status && count) {
+          csv += `${status},${count}\n`;
+        }
+      });
+      csv += '\n';
+    }
+    
+    // Sales Trend - only include if exists
+    if (sales_trend && Array.isArray(sales_trend) && sales_trend.length > 0) {
+      csv += 'SALES TREND\n';
       csv += 'Date,Day,Orders,Revenue\n';
       sales_trend.forEach(day => {
-        csv += `${day.date},${day.day_name},${day.orders},${day.revenue}\n`;
+        if (day.date && day.day_name) {
+          csv += `${day.date},${day.day_name},${day.orders || 0},${day.revenue || 0}\n`;
+        }
       });
+      // Grand Total for Sales Trend
+      const salesTrendOrders = sales_trend.reduce((sum, day) => sum + (day.orders || 0), 0);
+      const salesTrendRevenue = sales_trend.reduce((sum, day) => sum + (day.revenue || 0), 0);
+      csv += `Total,Total,${salesTrendOrders},${salesTrendRevenue}\n`;
+      csv += '\n';
+    }
     
-    csv += '\nTOP SELLING ITEMS\n';
+    // Top Selling Items - only include if exists
+    if (top_selling_items && Array.isArray(top_selling_items) && top_selling_items.length > 0) {
+      csv += 'TOP SELLING ITEMS\n';
       csv += 'Item Name,Category,Quantity Sold,Revenue\n';
       top_selling_items.forEach(item => {
-      csv += `${item.menu_item__name},${item.menu_item__category__name},${item.quantity_sold},${item.revenue}\n`;
-    });
+        if (item.menu_item__name && item.menu_item__category__name) {
+          csv += `${item.menu_item__name},${item.menu_item__category__name},${item.quantity_sold},${item.revenue}\n`;
+        }
+      });
+      // Grand Total for Top Selling Items
+      const topItemsQty = top_selling_items.reduce((sum, item) => sum + (item.quantity_sold || 0), 0);
+      const topItemsRevenue = top_selling_items.reduce((sum, item) => sum + (item.revenue || 0), 0);
+      csv += `Total,Total,${topItemsQty},${topItemsRevenue}\n`;
+      csv += '\n';
+    }
+    
+    // Top Categories - only include if exists
+    if (top_categories && Array.isArray(top_categories) && top_categories.length > 0) {
+      csv += 'TOP CATEGORIES\n';
+      csv += 'Category,Order Count,Revenue\n';
+      top_categories.forEach(category => {
+        if (category.category__name) {
+          csv += `${category.category__name},${category.order_count},${category.revenue}\n`;
+        }
+      });
+      // Grand Total for Top Categories
+      const topCategoriesOrderCount = top_categories.reduce((sum, category) => sum + (category.order_count || 0), 0);
+      const topCategoriesRevenue = top_categories.reduce((sum, category) => sum + (category.revenue || 0), 0);
+      csv += `Total,${topCategoriesOrderCount},${topCategoriesRevenue}\n`;
+      csv += '\n';
+    }
+    
+    // Order Type Analysis - only include if exists
+    if (order_type_analysis && Array.isArray(order_type_analysis) && order_type_analysis.length > 0) {
+      csv += 'ORDER TYPE ANALYSIS\n';
+      csv += 'Type,Total Orders,Total Revenue,Average Order Value\n';
+      order_type_analysis.forEach(type => {
+        // Only include if type has valid data
+        const orderType = type.order_type || '';
+        const totalOrders = type.total_orders || 0;
+        const totalRevenue = type.total_revenue || 0;
+        const avgOrderValue = type.average_order_value || 0;
+        if (orderType) {
+          csv += `${orderType},${totalOrders},${totalRevenue},${avgOrderValue}\n`;
+        }
+      });
+      csv += '\n';
+    }
+    
+    // Detailed Orders - only include if exists
+    if (detailed_orders && Array.isArray(detailed_orders) && detailed_orders.length > 0) {
+      csv += 'DETAILED ORDERS\n';
+      csv += 'Order #,Customer,Date,Type,Status,Items,Subtotal,Delivery Fee,Total Amount\n';
+      detailed_orders.forEach(order => {
+        const orderNumber = order.order_number || order.order_id;
+        const customerName = order.customer_name;
+        const orderDate = order.order_date;
+        const orderType = order.order_type;
+        const status = order.status;
+        const itemsCount = order.items_count;
+        
+        if (orderNumber && customerName && orderDate) {
+          const subtotal = parseFloat(order.subtotal) || 0;
+          const totalAmount = parseFloat(order.total_amount) || 0;
+          const calculatedDeliveryFee = totalAmount - subtotal;
+          
+          csv += `"${orderNumber}","${customerName}","${orderDate}","${orderType}","${status}",${itemsCount},${subtotal},${calculatedDeliveryFee.toFixed(2)},${totalAmount}\n`;
+        }
+      });
+      
+      // Grand Total
+      const grandSubtotal = detailed_orders.reduce((sum, order) => sum + (parseFloat(order.subtotal) || 0), 0);
+      const grandTotal = detailed_orders.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0);
+      const grandDeliveryFee = grandTotal - grandSubtotal;
+      
+      csv += '\n';
+      csv += 'GRAND TOTAL\n';
+      csv += `Total Subtotal,${grandSubtotal.toFixed(2)}\n`;
+      csv += `Total Delivery Fee,${grandDeliveryFee.toFixed(2)}\n`;
+      csv += `Total Amount,${grandTotal.toFixed(2)}\n`;
+    }
     
     return csv;
   };
@@ -274,6 +389,15 @@ const AdminReports = () => {
       </div>
     );
   }
+
+  // Pagination logic
+  const detailedOrders = reportData.report.detailed_orders || [];
+  const totalPages = Math.ceil(detailedOrders.length / ordersPerPage);
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = detailedOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const { summary, sales_trend, top_selling_items, top_categories, order_type_analysis } = reportData.report;
 
@@ -485,6 +609,17 @@ const AdminReports = () => {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" colSpan="2">Total</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {sales_trend.reduce((sum, day) => sum + (day.orders || 0), 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                          ₹{sales_trend.reduce((sum, day) => sum + (day.revenue || 0), 0)}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>
@@ -514,6 +649,17 @@ const AdminReports = () => {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" colSpan="3">Total</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {top_selling_items.reduce((sum, item) => sum + (item.quantity_sold || 0), 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                          ₹{top_selling_items.reduce((sum, item) => sum + (item.revenue || 0), 0)}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>
@@ -543,6 +689,20 @@ const AdminReports = () => {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" colSpan="2">Total</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {top_categories.reduce((sum, category) => sum + (category.total_orders || 0), 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {top_categories.reduce((sum, category) => sum + (category.total_items_sold || 0), 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                          ₹{top_categories.reduce((sum, category) => sum + (category.total_revenue || 0), 0)}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>
@@ -568,7 +728,7 @@ const AdminReports = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {reportData.report.detailed_orders.slice(0, 20).map((order, index) => {
+                  {currentOrders.map((order, index) => {
                     const subtotal = parseFloat(order.subtotal) || 0;
                     const totalAmount = parseFloat(order.total_amount) || 0;
                     const calculatedDeliveryFee = totalAmount - subtotal;
@@ -627,8 +787,83 @@ const AdminReports = () => {
                     );
                   })}
                 </tbody>
+                <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                  <tr>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" colSpan="6">Total</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                      ₹{detailedOrders.reduce((sum, order) => sum + (parseFloat(order.subtotal) || 0), 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600">
+                      ₹{detailedOrders.reduce((sum, order) => {
+                        const subtotal = parseFloat(order.subtotal) || 0;
+                        const totalAmount = parseFloat(order.total_amount) || 0;
+                        return sum + (totalAmount - subtotal);
+                      }, 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                      ₹{detailedOrders.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0)}
+                    </td>
+                    <td className="px-6 py-4"></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 px-6">
+                <div className="text-sm text-gray-700">
+                  Showing {indexOfFirstOrder + 1} to {Math.min(indexOfLastOrder, detailedOrders.length)} of {detailedOrders.length} orders
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Show first page, last page, current page, and pages around current
+                        return page === 1 || 
+                               page === totalPages || 
+                               Math.abs(page - currentPage) <= 1;
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis if needed
+                        const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
+                        
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsisBefore && (
+                              <span className="px-3 py-2 text-gray-500">...</span>
+                            )}
+                            <button
+                              onClick={() => paginate(page)}
+                              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                currentPage === page
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

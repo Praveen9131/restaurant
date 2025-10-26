@@ -15,10 +15,12 @@ const ForgotPassword = () => {
     setMessage('');
 
     try {
-      const response = await authAPI.forgotPassword({ email });
+      const response = await authAPI.forgotPassword(email);
       setMessage(response.data.message || 'Password reset email sent successfully');
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to send reset email');
+      console.error('Forgot password error:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to send reset email';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
