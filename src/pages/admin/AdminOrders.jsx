@@ -321,7 +321,14 @@ const AdminOrders = () => {
                       Order #{order.order_number}
                     </button>
                     <p className="text-gray-600 text-sm">
-                      {new Date(order.order_date).toLocaleString()}
+                      {new Date(order.order_date).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
                     </p>
                     <p className="text-gray-700 font-medium mt-1">{order.customer_name}</p>
                     <p className="text-gray-600 text-sm">{order.customer_phone}</p>
@@ -484,25 +491,48 @@ const AdminOrders = () => {
 
                 {/* Modal Body */}
                 <div className="p-6 space-y-6">
-                  {/* Order Status & Date */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Order Date</p>
-                      <p className="font-semibold text-gray-900">
-                        {new Date(selectedOrder.order_date).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Status</p>
-                      <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedOrder.status)}`}>
-                        {formatStatus(selectedOrder.status)}
-                      </span>
+                  {/* Order Information */}
+                  <div className="bg-blue-50 rounded-xl p-6 mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Order Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Order Number</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.order_number}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Order ID</p>
+                        <p className="font-mono font-semibold text-gray-900">{selectedOrder.order_id}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Order Date & Time</p>
+                        <p className="font-medium text-gray-900">
+                          {new Date(selectedOrder.order_date).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Order Status</p>
+                        <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(selectedOrder.status)}`}>
+                          {formatStatus(selectedOrder.status)}
+                        </span>
+                      </div>
+                      {selectedOrder.payment_method && (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Payment Method</p>
+                          <p className="font-medium text-gray-900 capitalize">{selectedOrder.payment_method}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

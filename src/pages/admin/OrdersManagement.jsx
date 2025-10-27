@@ -263,6 +263,8 @@ const OrdersManagement = () => {
         return 'bg-yellow-100 text-yellow-800';
       case 'confirmed':
         return 'bg-blue-100 text-blue-800';
+      case 'preparing':
+        return 'bg-purple-100 text-purple-800';
       case 'out_for_delivery':
         return 'bg-indigo-100 text-indigo-800';
       case 'delivered':
@@ -309,6 +311,12 @@ const OrdersManagement = () => {
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
               <span className="text-gray-600">
                 <span className="font-semibold text-blue-600">{statusCounts.confirmed || 0}</span> Confirmed
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+              <span className="text-gray-600">
+                <span className="font-semibold text-purple-600">{statusCounts.preparing || 0}</span> Preparing
               </span>
             </div>
             <div className="flex items-center space-x-2 text-sm">
@@ -486,7 +494,14 @@ const OrdersManagement = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(order.order_date || order.created_at).toLocaleDateString()}
+                    {new Date(order.order_date || order.created_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
@@ -502,6 +517,7 @@ const OrdersManagement = () => {
                     >
                       <option value="pending">Pending</option>
                       <option value="confirmed">Confirmed</option>
+                      <option value="preparing">Preparing</option>
                       <option value="out_for_delivery">Out for Delivery</option>
                       <option value="delivered">Delivered</option>
                       <option value="cancelled">Cancelled</option>
@@ -653,6 +669,54 @@ const OrdersManagement = () => {
             </div>
 
             <div className="space-y-6">
+              {/* Order Information */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3">Order Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Order Number:</span>
+                    <span className="ml-2 font-bold">{selectedOrder.order_number || selectedOrder.order_id}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Order ID:</span>
+                    <span className="ml-2 font-mono font-medium">{selectedOrder.order_id}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Date & Time:</span>
+                    <span className="ml-2 font-medium">
+                      {new Date(selectedOrder.order_date).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Status:</span>
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                      selectedOrder.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedOrder.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                      selectedOrder.status === 'preparing' ? 'bg-purple-100 text-purple-800' :
+                      selectedOrder.status === 'out_for_delivery' ? 'bg-indigo-100 text-indigo-800' :
+                      selectedOrder.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                      selectedOrder.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedOrder.status}
+                    </span>
+                  </div>
+                  {selectedOrder.payment_method && (
+                    <div>
+                      <span className="text-gray-600">Payment:</span>
+                      <span className="ml-2 font-medium capitalize">{selectedOrder.payment_method}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Customer Info */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 mb-2">Customer Information</h4>
@@ -728,6 +792,7 @@ const OrdersManagement = () => {
                 >
                   <option value="pending">Pending</option>
                   <option value="confirmed">Confirmed</option>
+                  <option value="preparing">Preparing</option>
                   <option value="out_for_delivery">Out for Delivery</option>
                   <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>

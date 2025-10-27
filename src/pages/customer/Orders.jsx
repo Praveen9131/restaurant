@@ -176,12 +176,13 @@ const Orders = () => {
                       Order #{order.order_number}
                     </h3>
                     <p className="text-gray-600 text-sm">
-                      {new Date(order.order_date).toLocaleDateString('en-US', {
+                      {new Date(order.order_date).toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
+                        hour12: true
                       })}
                     </p>
                   </div>
@@ -218,6 +219,11 @@ const Orders = () => {
                     <p className="text-gray-600 text-sm mb-1">
                       <strong>Delivery Address:</strong> {order.delivery_address}
                     </p>
+                    {order.customer_phone && (
+                      <p className="text-gray-600 text-sm mb-1">
+                        <strong>Phone:</strong> {order.customer_phone}
+                      </p>
+                    )}
                     <p className="text-gray-600 text-sm">
                       <strong>Items:</strong> {order.items_count}
                     </p>

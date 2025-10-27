@@ -39,9 +39,9 @@ const CustomerManagement = () => {
         // Transform the data to match our existing structure
         const customersList = customersData.map(customer => ({
           id: customer.customer_id,
-          name: customer.customer_name,
+          name: customer.customer_name || '',
           phone: customer.customer_phone,
-          email: '', // Not provided in this API
+          email: customer.customer_email || customer.email || null,
           address: '', // Not provided in this API
           orders: customer.orders || [],
           totalOrders: customer.orders?.length || 0,
@@ -248,12 +248,13 @@ const CustomerManagement = () => {
 
   const formatDate = useCallback((dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
   }, []);
 
